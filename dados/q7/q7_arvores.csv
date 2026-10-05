@@ -1,0 +1,9 @@
+﻿arvore,alvo,descricao_alvo,casos,positivos,negativos,acuracia_cv,desvio_cv,baseline,folhas,atributo_mais_importante,peso_mais_importante,ganho_minimo_impureza,max_profundidade,min_amostras_folha,regra
+A_Q_MAIOR_1,sobre_representada,sobre-representada nos vínculos formais (Q > 1),101,40,61,0.841,0.039,0.604,2,salario_medio_sm,1.0,0.03,3,5,"|--- salario_medio_sm <= 1.68
+|   |--- class: True
+|--- salario_medio_sm >  1.68
+|   |--- class: False"
+B_SALARIO_TERCIL_SUPERIOR,salario_tercil_superior,remuneração no tercil superior,68,34,34,0.985,0.031,0.5,2,pct_superior,1.0,0.03,3,5,"|--- pct_superior <= 0.37
+|   |--- class: False
+|--- pct_superior >  0.37
+|   |--- class: True"

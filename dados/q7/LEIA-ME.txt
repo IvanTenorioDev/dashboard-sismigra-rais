@@ -1,0 +1,29 @@
+Estes arquivos NÃO estão versionados no Git.
+
+Para gerá-los:
+
+  1. Abra Integrador_Base_Unificada_REV1.ipynb no Colab
+  2. Rode o notebook inteiro (as 4 entradas em ZIP são pedidas no início)
+  3. Rode a FASE 9 — a última célula imprime uma conferência contra os números
+     congelados na v5 (101 elegíveis, k = 3, ARI 0,632, regiões 57/20/24)
+  4. Se todos os números conferirem, baixe a pasta `dashboard` gerada em
+     integrador_base_unificada/ e copie o conteúdo dela para cá
+
+Arquivos esperados:
+
+  q7_config.json         parâmetros congelados e contagens de conferência
+  q7_perfis.csv          as nacionalidades elegíveis, com os 6 atributos, Q e região
+  q7_pca.csv             coordenadas PC1 x PC2
+  q7_cargas.csv          cargas dos atributos nos componentes
+  q7_variancia.csv       variância explicada e acumulada
+  q7_diagnostico_k.csv   inércia, silhueta, ARI KMeans x Ward e ARI de reamostragem
+  q7_regioes.csv         perfil mediano das regiões
+  q7_arvores.csv         alvos, acurácias, baselines e regras das árvores
+
+Depois de copiar, confira com:
+
+  .venv/bin/python testes/validar.py --conferir
+
+Para ver o layout sem os dados reais, rode `.venv/bin/python testes/validar.py`:
+ele gera artefatos sintéticos em diretório temporário e o app exibe um aviso em
+vermelho quando está nesse modo.

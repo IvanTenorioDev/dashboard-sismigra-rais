@@ -1,0 +1,6 @@
+# Versões validadas em 05/10/2026 com `testes/validar.py`.
+# O Streamlit Community Cloud instala exatamente estas versões.
+streamlit==1.65.0
+plotly==7.1.0
+pandas==3.0.6
+numpy==2.4.6

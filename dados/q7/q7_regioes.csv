@@ -1,0 +1,4 @@
+﻿regiao,n_nacionalidades,salario_medio_sm,pct_superior,pct_feminino,pct_faixa_25_39,hhi_setorial,pct_tempo_parcial,vinculos_na_janela,Q_mediano,participacao_vinculos,exemplos
+1,57,1.68,0.308,0.356,0.509,0.025,0.023,799597.0,0.866,0.796,"VENEZUELA, CUBA, ARGENTINA, PARAGUAI, BOLIVIA"
+2,20,6.738,0.716,0.338,0.506,0.03,0.055,44431.0,0.339,0.044,"COREIA DO SUL, ESTADOS UNIDOS, ITALIA, ESPANHA, FRANCA"
+3,24,1.592,0.201,0.144,0.681,0.053,0.01,159905.0,1.253,0.159,"HAITI, SENEGAL, GUINE BISSAU, MARROCOS, BANGLADESH"

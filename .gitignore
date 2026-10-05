@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.streamlit/secrets.toml
+
+# Os artefatos de dados/q7/ SÃO versionados de propósito: são a saída congelada do
+# pipeline (poucos KB) e sem eles o app publicado no Streamlit Community Cloud não
+# teria o que exibir. Gere-os com a FASE 9 do notebook e faça commit.
+
+# Execução descartada (102 elegíveis, k=2, ARI 0,007 no k=2): guardada só para
+# comparação local. NUNCA vai para o repositório.
+dados/_execucao_antiga_102/

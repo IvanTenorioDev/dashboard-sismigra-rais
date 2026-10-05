@@ -1,0 +1,16 @@
+# Configuração de tema do dashboard.
+# O Streamlit Community Cloud exige que este arquivo fique na RAIZ do repositório
+# (na pasta .streamlit/). Por isso a recomendação é que a raiz do repositório seja
+# esta pasta `dashboard/`.
+
+[theme]
+# O desenho aprovado é claro; fixar em "light" evita que o app mude de aparência
+# conforme o tema do sistema de quem abre o link.
+base = "light"
+primaryColor = "#D97A2B"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F4F6F8"
+textColor = "#1A1A1A"
+
+[browser]
+gatherUsageStats = false

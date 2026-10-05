@@ -1,0 +1,27 @@
+{
+  "janela": [
+    2023,
+    2025
+  ],
+  "regra_elegibilidade": "Q comparável, 6 atributos observados e V_total >= 100 (soma da janela)",
+  "minimo_vinculos_na_janela": 100,
+  "minimo_nacionalidades_por_grupo": 4,
+  "acordo_minimo_kmeans_ward": 0.5,
+  "ks_avaliados": [
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+  ],
+  "repeticoes_reamostragem": 30,
+  "semente": 42,
+  "k_escolhido": 3,
+  "ari_kmeans_ward": 0.632,
+  "universo_com_Q_comparavel": 185,
+  "com_os_6_atributos": 185,
+  "elegiveis": 101,
+  "vinculos_das_elegiveis": 1003933
+}
