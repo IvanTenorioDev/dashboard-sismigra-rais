@@ -62,7 +62,7 @@ def dispersao_pca(artefatos: DadosQ7) -> go.Figure:
     variancia = artefatos.variancia.set_index("componente")["variancia_explicada"]
     figura.update_layout(
         template="plotly_white", height=ALTURA, margin=MARGEM, hoverlabel=dict(font=dict(size=12)),
-        title=_titulo_padrao("Posição das nacionalidades no plano dos dois primeiros componentes"),
+        title=_titulo_padrao("Projeção das nacionalidades em PC1 × PC2, por região"),
         legend=dict(orientation="h", y=-0.18, title_text=""),
     )
     figura.update_xaxes(title_text=f"PC1 ({formatar_percentual(variancia.get('PC1', float('nan')))} da variância)")
@@ -83,10 +83,10 @@ def cargas_pca(artefatos: DadosQ7) -> go.Figure:
         ))
     figura.update_layout(
         template="plotly_white", height=ALTURA, margin=MARGEM, barmode="group",
-        title=_titulo_padrao("Quanto cada atributo pesa em cada componente"),
+        title=_titulo_padrao("Cargas dos atributos nos componentes principais"),
         legend=dict(orientation="h", y=-0.18, title_text=""),
     )
-    figura.update_xaxes(title_text="carga (correlação com o componente)")
+    figura.update_xaxes(title_text="carga (correlação atributo–componente)")
     return figura
 
 
@@ -110,7 +110,7 @@ def mapa_regioes(artefatos: DadosQ7) -> go.Figure:
     ))
     figura.update_layout(
         template="plotly_white", height=ALTURA, margin=MARGEM,
-        title=_titulo_padrao("Perfil mediano de cada região (valores reais nas células)"),
+        title=_titulo_padrao("Medianas por região, com valores observados nas células"),
     )
     figura.update_yaxes(autorange="reversed")
     return figura
@@ -130,9 +130,9 @@ def faixas_de_q(artefatos: DadosQ7) -> go.Figure:
     figura.add_hline(y=1.0, line_dash="dash", line_color=LARANJA, annotation_text="Q = 1 (paridade)", annotation_position="top left")
     figura.update_layout(
         template="plotly_white", height=ALTURA, margin=MARGEM, showlegend=False,
-        title=_titulo_padrao("O índice Q por região — as caixas se sobrepõem"),
+        title=_titulo_padrao("Distribuição do índice Q por região"),
     )
-    figura.update_yaxes(title_text="Q na janela 2023–2025 (mediana por nacionalidade)")
+    figura.update_yaxes(title_text="índice Q na janela (mediana por nacionalidade)")
     return figura
 
 
@@ -156,7 +156,7 @@ def diagnostico_k(artefatos: DadosQ7) -> go.Figure:
     diagnostico = artefatos.diagnostico.sort_values("k")
     figura = make_subplots(
         rows=2, cols=2,
-        subplot_titles=("Inércia (cotovelo)", "Coesão (silhueta)", "Concordância KMeans × Ward", "Estabilidade (ARI em reamostragens)"),
+        subplot_titles=("Inércia intra-cluster", "Coeficiente de silhueta", "Concordância KMeans × Ward (ARI)", "ARI sob reamostragem"),
     )
     for linha, coluna, campo, cor, desvio in PAINEIS_DIAGNOSTICO:
         figura.add_trace(
@@ -171,7 +171,7 @@ def diagnostico_k(artefatos: DadosQ7) -> go.Figure:
         figura.add_vline(x=artefatos.k_escolhido, line_dash="dash", line_color=LARANJA, row=linha, col=coluna)
     figura.update_layout(
         template="plotly_white", height=640, margin=MARGEM, hovermode="x unified",
-        title=_titulo_padrao("Diagnóstico de k — a linha tracejada é o k escolhido"),
+        title=_titulo_padrao("Critérios de escolha de k — linha tracejada no k escolhido"),
     )
     figura.update_xaxes(dtick=1, title_text="k")
     return figura
@@ -193,9 +193,9 @@ def estabilidade_por_k(artefatos: DadosQ7) -> go.Figure:
         ))
     figura.update_layout(
         template="plotly_white", height=ALTURA, margin=MARGEM, showlegend=False,
-        title=_titulo_padrao("Variabilidade da estabilidade — é a faixa que importa, não o ponto"),
+        title=_titulo_padrao("ARI sob reamostragem, por k (80% dos casos, 30 repetições)"),
     )
-    figura.update_yaxes(title_text="ARI da reamostragem contra a partição de referência")
+    figura.update_yaxes(title_text="ARI contra a partição de referência")
     return figura
 
 
@@ -216,7 +216,7 @@ def arvores_comparacao(artefatos: DadosQ7) -> go.Figure:
     ))
     figura.update_layout(
         template="plotly_white", height=ALTURA, margin=MARGEM, barmode="group", bargap=0.35,
-        title=_titulo_padrao("O ganho da árvore sobre o chute informado"),
+        title=_titulo_padrao("Acurácia em validação cruzada contra o classificador majoritário"),
         legend=dict(orientation="h", y=-0.25, title_text=""),
     )
     figura.update_yaxes(title_text="acurácia", range=[0, 1.05])
@@ -250,7 +250,7 @@ def composicao_regioes(artefatos: DadosQ7) -> go.Figure:
     )
     figura.update_layout(
         template="plotly_white", height=ALTURA, margin=MARGEM,
-        title=_titulo_padrao("Composição das regiões: muitas nacionalidades, poucos vínculos"),
+        title=_titulo_padrao("Nacionalidades e volume de vínculos por região"),
         legend=dict(orientation="h", y=-0.2, title_text=""),
     )
     figura.update_yaxes(title_text="nacionalidades elegíveis", secondary_y=False)

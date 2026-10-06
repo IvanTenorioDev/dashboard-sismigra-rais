@@ -60,7 +60,7 @@ def detalhamento(itens: Iterable[tuple[str, str]]) -> str:
         f"<p><b>{rotulo}:</b> {para_html(texto)}</p>" for rotulo, texto in itens
     )
     return (
-        '<details class="detalhe"><summary>O que cada limite quer dizer</summary>'
+        '<details class="detalhe"><summary>Detalhamento de cada limite</summary>'
         f"{paragrafos}</details>"
     )
 

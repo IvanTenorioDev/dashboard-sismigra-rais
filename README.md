@@ -165,7 +165,27 @@ em `nucleo/estilo.py`, num único lugar — nenhuma página injeta CSS por conta
    A mesma informação aparece permanentemente na sidebar, que não rola — então o
    requisito de estar sempre visível é atendido por outro caminho.
 
-### 7.2 Decisões analíticas
+### 7.2 Registro da narrativa
+
+O produto é avaliado em banca de MBA. O texto assume leitor com formação quantitativa:
+não explica o que é um coeficiente de silhueta, um baseline ou uma validação cruzada, e
+não usa metáfora onde cabe o termo técnico. Os textos vêm de uma revisão que removeu
+didatismo ("sem isso, uma acurácia de 0,84 pareceria excelente...") e coloquialismo
+("chute informado", "k sortudo", "duas pontas e um meio").
+
+**Nenhum número da narrativa é escrito à mão.** Eles são campos preenchidos em tempo de
+geração a partir de `DadosQ7.valores_para_texto()`:
+
+```python
+RESPOSTA_SINTETICA = "... a partição em {k} regiões ... silhueta de {silhueta} ..."
+```
+
+A razão é concreta: a leitura da regra de k afirmava, fixado no texto, que a concordância
+KMeans × Ward em k=2 era **0,007**. Com a elegibilidade corrigida ela passou a **0,432** —
+o texto continuou dizendo 0,007 e ninguém notaria. Agora `{acordo_k2}` acompanha a
+execução, e o modo `--html` falha se algum campo ficar sem valor.
+
+### 7.3 Decisões analíticas
 
 **O painel "Resposta + limites" é fixo.** Trocar a evidência não troca a conclusão. Isso é
 deliberado: a mensagem da Q7 é que a leitura vem do **conjunto** das evidências, e um

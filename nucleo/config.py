@@ -75,6 +75,9 @@ PISO_HHI = 500
 PISO_PERSISTENCIA = 500
 PISO_PERFIL = 100
 
+# Quantas nacionalidades a tabela de rastreabilidade exibe por padrão.
+NACIONALIDADES_NA_TABELA = 60
+
 # A navegação do slide 11: abas por pergunta, não por técnica.
 ABA_Q7 = "Q7 Multivariado"
 ABAS: tuple[str, ...] = (

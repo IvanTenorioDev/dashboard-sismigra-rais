@@ -138,25 +138,27 @@ def _grafico(figura: object) -> None:
         st.plotly_chart(figura, use_container_width=True, config=sem_barra)
 
 
-def _renderizar_evidencia(artefatos: DadosQ7, evidencia: textos.Evidencia) -> None:
+def _renderizar_evidencia(
+    artefatos: DadosQ7, evidencia: textos.Evidencia, valores: dict[str, object]
+) -> None:
     st.markdown(f"**{evidencia.titulo}**")
     if evidencia.chave == "quem":
         _tabela_das_nacionalidades(artefatos)
     else:
         _grafico(FIGURAS[evidencia.chave](artefatos))
-    st.caption(evidencia.leitura)
+    st.caption(textos.preencher(evidencia.leitura, valores))
     if evidencia.chave == "arvores":
         _regras_das_arvores(artefatos)
 
 
-def _ponte_com_o_problema() -> None:
+def _ponte_com_o_problema(valores: dict[str, object]) -> None:
     st.markdown(
         f"""
         <div style="border-left:4px solid {LARANJA}; background:#FDF7F1; padding:0.8rem 1rem;
                     border-radius:0.3rem; margin-top:0.4rem;">
           <div style="font-size:0.72rem; letter-spacing:0.04em; text-transform:uppercase;
                       color:#8A5A1F; margin-bottom:0.3rem;">Onde isto toca o problema do projeto</div>
-          <div style="font-size:0.95rem; line-height:1.5;">{textos.RESPOSTA_ANCORADA_NO_PROBLEMA}</div>
+          <div style="font-size:0.95rem; line-height:1.5;">{textos.preencher(textos.RESPOSTA_ANCORADA_NO_PROBLEMA, valores)}</div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -165,6 +167,7 @@ def _ponte_com_o_problema() -> None:
 
 def renderizar(artefatos: DadosQ7) -> None:
     """Desenha a aba Q7 inteira."""
+    valores = artefatos.valores_para_texto()
     layout.tres_cartoes(
         _linhas_cobertura(artefatos), _linhas_filtros(artefatos), _linhas_metodo(artefatos)
     )
@@ -173,15 +176,16 @@ def renderizar(artefatos: DadosQ7) -> None:
 
     with coluna_evidencia, st.container(border=True):
         evidencia = _seletor_de_evidencia()
-        _renderizar_evidencia(artefatos, evidencia)
+        _renderizar_evidencia(artefatos, evidencia, valores)
 
     with coluna_resposta:
+        limites = _limites()
         layout.painel_resposta(
             "Resposta + limites",
-            textos.RESPOSTA_SINTETICA,
+            textos.preencher(textos.RESPOSTA_SINTETICA, valores),
             _indicadores(artefatos),
-            _limites(),
+            ((rotulo, textos.preencher(texto, valores)) for rotulo, texto in limites),
         )
 
-    _ponte_com_o_problema()
+    _ponte_com_o_problema(valores)
     layout.rodape_pisos()

@@ -27,7 +27,13 @@ sys.path.insert(0, str(RAIZ))
 
 from gerador import componentes, tema  # noqa: E402
 from nucleo import graficos, textos  # noqa: E402
-from nucleo.config import ABA_Q7, ABAS, COLUNAS_ATRIBUTOS, ROTULOS_ATRIBUTOS  # noqa: E402
+from nucleo.config import (  # noqa: E402
+    ABA_Q7,
+    ABAS,
+    COLUNAS_ATRIBUTOS,
+    NACIONALIDADES_NA_TABELA,
+    ROTULOS_ATRIBUTOS,
+)
 from nucleo.dados import DadosQ7, carregar, pasta_dados  # noqa: E402
 from nucleo.formatos import formatar_atributo, formatar_decimal, formatar_inteiro  # noqa: E402
 
@@ -96,7 +102,7 @@ def _cartoes(artefatos: DadosQ7) -> str:
 
 def _tabela_nacionalidades(artefatos: DadosQ7) -> str:
     tabela = artefatos.perfis.copy()
-    ordenada = tabela.sort_values("Q_medio", ascending=False).head(60)
+    ordenada = tabela.sort_values("Q_medio", ascending=False).head(NACIONALIDADES_NA_TABELA)
     cabecalhos = ("Nacionalidade", "Região", "Q", "Vínculos", *(ROTULOS_ATRIBUTOS[c] for c in COLUNAS_ATRIBUTOS))
     linhas = [
         (
@@ -108,28 +114,26 @@ def _tabela_nacionalidades(artefatos: DadosQ7) -> str:
         )
         for _, linha in ordenada.iterrows()
     ]
-    nota = componentes.leitura(
-        f"As {len(ordenada)} nacionalidades de maior Q, das {len(tabela)} elegíveis. "
-        "Esta tabela é a base de todos os gráficos desta aba."
-    )
-    return componentes.tabela(cabecalhos, linhas) + nota
+    return componentes.tabela(cabecalhos, linhas)
 
 
-def _bloco_de_evidencia(artefatos: DadosQ7, evidencia: textos.Evidencia, ativa: bool) -> str:
+def _bloco_de_evidencia(
+    artefatos: DadosQ7, evidencia: textos.Evidencia, ativa: bool, valores: dict[str, object]
+) -> str:
     if evidencia.chave == "quem":
         corpo = _tabela_nacionalidades(artefatos)
     else:
         figura = FIGURAS[evidencia.chave](artefatos)
-        corpo = componentes.grafico(figura, f"q7-{evidencia.chave}") + componentes.leitura(
-            evidencia.leitura
-        )
-    return componentes.evidencia(evidencia.chave, corpo, ativa)
+        corpo = componentes.grafico(figura, f"q7-{evidencia.chave}")
+    return componentes.evidencia(
+        evidencia.chave, corpo + componentes.leitura(textos.preencher(evidencia.leitura, valores)), ativa
+    )
 
 
-def _cartao_de_evidencia(artefatos: DadosQ7) -> str:
+def _cartao_de_evidencia(artefatos: DadosQ7, valores: dict[str, object]) -> str:
     opcoes = ((e.chave, textos.rotulo_curto(e)) for e in textos.EVIDENCIAS)
     blocos = (
-        _bloco_de_evidencia(artefatos, evidencia, indice == 0)
+        _bloco_de_evidencia(artefatos, evidencia, indice == 0, valores)
         for indice, evidencia in enumerate(textos.EVIDENCIAS)
     )
     return (
@@ -139,7 +143,7 @@ def _cartao_de_evidencia(artefatos: DadosQ7) -> str:
     )
 
 
-def _cartao_de_resposta(artefatos: DadosQ7) -> str:
+def _cartao_de_resposta(artefatos: DadosQ7, valores: dict[str, object]) -> str:
     resumo = graficos.resumo_numerico(artefatos)
     limites = (
         ("Denominador", textos.DENOMINADOR_EXPLICITO),
@@ -154,21 +158,23 @@ def _cartao_de_resposta(artefatos: DadosQ7) -> str:
         ("KMeans × Ward", resumo["KMeans × Ward"]),
         ("Estabilidade", resumo["Estabilidade (média)"] + " de média"),
     ))
+    detalhado = ((rotulo, textos.preencher(texto, valores)) for rotulo, texto in limites)
     return (
         '<div class="cartao cartao-alto"><div class="titulo-bloco">Resposta + limites</div>'
-        f'<div class="resposta">{componentes.para_html(textos.RESPOSTA_SINTETICA)}</div>'
+        f'<div class="resposta">{componentes.para_html(textos.preencher(textos.RESPOSTA_SINTETICA, valores))}</div>'
         f"{indicadores}"
         f"{componentes.lista_de_limites(rotulo for rotulo, _ in limites)}"
-        f"{componentes.detalhamento(limites)}</div>"
+        f"{componentes.detalhamento(detalhado)}</div>"
     )
 
 
 def _secao_q7(artefatos: DadosQ7) -> str:
+    valores = artefatos.valores_para_texto()
     return (
         f"{_cartoes(artefatos)}"
-        f'<div class="linha-principal">{_cartao_de_evidencia(artefatos)}'
-        f"{_cartao_de_resposta(artefatos)}</div>"
-        f"{componentes.ponte('Onde isto toca o problema do projeto', textos.RESPOSTA_ANCORADA_NO_PROBLEMA)}"
+        f'<div class="linha-principal">{_cartao_de_evidencia(artefatos, valores)}'
+        f"{_cartao_de_resposta(artefatos, valores)}</div>"
+        f"{componentes.ponte('Onde isto toca o problema do projeto', textos.preencher(textos.RESPOSTA_ANCORADA_NO_PROBLEMA, valores))}"
     )
 
 

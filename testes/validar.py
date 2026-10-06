@@ -170,6 +170,12 @@ def gerar_fixture(destino: Path) -> Path:
     configuracao = {
         "janela": [2023, 2025],
         "minimo_vinculos_na_janela": 100,
+        "regra_elegibilidade": "Q comparável, 6 atributos observados e V_total >= 100",
+        "minimo_nacionalidades_por_grupo": 4,
+        "acordo_minimo_kmeans_ward": 0.5,
+        "repeticoes_reamostragem": REPETICOES,
+        "ks_avaliados": list(range(2, 9)),
+        "semente": SEMENTE_FIXTURE,
         "k_escolhido": 3,
         "ari_kmeans_ward": 0.632,
         "universo_com_Q_comparavel": 184,

@@ -21,8 +21,9 @@ PERGUNTAS: dict[str, str] = {
     "Q5 Persistência": "Os registros se sustentam ao longo do tempo ou são pontuais?",
     "Q6 Atributos": "Qual é o perfil dos vínculos formais de cada nacionalidade?",
     ABA_Q7: (
-        "Existem **grupos distintos** de inserção laboral entre as nacionalidades — ou um "
-        "**contínuo**? E quais atributos acompanham a sobre-representação nos vínculos formais?"
+        "Existem partições discretas de inserção laboral entre as nacionalidades, ou um "
+        "contínuo? E quais atributos de perfil discriminam a sobre-representação nos vínculos "
+        "formais?"
     ),
     "Método & limites": (
         "Quais decisões metodológicas sustentam tudo que está nas outras abas?"
@@ -47,47 +48,61 @@ def rotulo_curto(evidencia: "Evidencia") -> str:
     """Rótulo compacto de uma evidência, para o seletor."""
     return ROTULOS_CURTOS[evidencia.chave]
 
+
+def preencher(texto: str, valores: dict[str, object]) -> str:
+    """Preenche os números da narrativa com os valores desta execução.
+
+    Nenhum número destes textos é escrito à mão: todos vêm de
+    `DadosQ7.valores_para_texto`. Um valor fixado no texto divergiria em silêncio na
+    próxima execução do notebook — foi o que aconteceu com a concordância KMeans × Ward
+    em k=2, registrada como 0,007 e que passou a 0,43 quando a elegibilidade foi corrigida.
+    """
+    return texto.format(**valores)
+
+
 RESPOSTA_SINTETICA = (
-    "Um **gradiente**, não três tipos naturais. As nacionalidades se ordenam ao longo de "
-    "um eixo de qualificação e remuneração, e o corte em três regiões é uma escolha "
-    "analítica — a silhueta de 0,27 diz que as fronteiras são frouxas, não que os grupos "
-    "sejam evidentes."
+    "Um **contínuo**, não três tipos discretos. As nacionalidades se ordenam ao longo de um "
+    "eixo de qualificação–remuneração; a partição em {k} regiões é uma decisão analítica, e a "
+    "silhueta de {silhueta} quantifica a fragilidade dessas fronteiras. A separação é "
+    "convenção de leitura, não descoberta de categorias."
 )
 
 DENOMINADOR_EXPLICITO = (
-    "**101** nacionalidades elegíveis de **184** comparáveis entre as duas fontes. "
-    "Não são pessoas: cada linha é uma nacionalidade, com o total de vínculos da janela."
+    "**{n_elegiveis}** nacionalidades elegíveis de **{n_universo}** presentes simultaneamente "
+    "nas duas fontes. Unidade de análise: nacionalidade × ano, com vínculos agregados — "
+    "nenhuma das bases possui identificador de indivíduo."
 )
 
 CRITERIO_ELEGIBILIDADE = (
-    "Três cortes: **Q comparável** (a nacionalidade aparece nas duas fontes), os **seis "
-    "atributos observados** e **soma de vínculos na janela 2023–2025 ≥ 100**. Não se "
-    "imputa dado ausente, e o piso é de massa estatística — não valida os grupos."
+    "Três filtros cumulativos: Q definido, seis atributos sem dado ausente e "
+    "V_total ≥ 100 na janela 2023–2025. Sem imputação. O piso assegura massa mínima para as "
+    "medianas; não valida a estrutura encontrada."
 )
 
 COBERTURA_OBSERVADA = (
-    "RAIS-CTPS (estoque em 31/12) e SISMIGRA-ATIVOS (fotografia de dezembro), "
-    "harmonizados por **nacionalidade × ano**. Não existe identificador individual em "
-    "nenhuma das fontes, então a comparação é sempre entre distribuições."
+    "RAIS-CTPS (estoque em 31/12) e SISMIGRA-ATIVOS (posição de dezembro), harmonizados em "
+    "nacionalidade × ano. A ausência de identificador individual em ambas as fontes restringe "
+    "a integração ao nível agregado: comparam-se distribuições, nunca registros."
 )
 
 INTERPRETACAO_PERMITIDA = (
-    "Descrever **como os perfis se ordenam** e quais atributos acompanham cada posição. "
-    "Resultado associativo, válido para esta amostra e estes denominadores."
+    "Ordenar os perfis e identificar os atributos associados a cada posição. Inferência "
+    "descritiva, condicionada a esta amostra e a estes denominadores."
 )
 
 INTERPRETACAO_PROIBIDA = (
-    "Afirmar causalidade, tratar as regiões como categorias naturais ou jurídicas, "
-    "extrapolar para pessoas (o índice Q não é taxa de emprego) e ler o índice Q como "
-    "medida de integração."
+    "Causalidade; tratar as regiões como categorias naturais ou jurídicas; extrapolar para "
+    "indivíduos (Q não é taxa de emprego nem de formalização); interpretar Q como medida de "
+    "integração."
 )
 
 RESPOSTA_ANCORADA_NO_PROBLEMA = (
-    "A região de **maior Q é também a de menor salário** (≈ 1,6 SM) e a **menor "
-    "escolaridade superior**. Sobre-representação nos vínculos formais **não** significa "
-    "inserção mais favorável: significa presença proporcionalmente maior numa base de "
-    "vínculos de baixa remuneração. É exatamente o tipo de leitura que o índice Q "
-    "isolado esconde — e a razão de a análise ser multivariada."
+    "A região de maior Q (**{q_regiao_maior}**, região {regiao_maior_q}) é também a de menor "
+    "remuneração mediana (**{salario_regiao_maior_q} SM**) e a de menor proporção de "
+    "escolaridade superior (**{superior_regiao_maior_q}**). Sobre-representação no estoque de "
+    "vínculos não implica inserção favorável: implica presença proporcionalmente maior em "
+    "vínculos de baixa remuneração. É a ambiguidade que o índice Q isolado não resolve — e a "
+    "justificativa do tratamento multivariado."
 )
 
 
@@ -105,92 +120,97 @@ EVIDENCIAS: tuple[Evidencia, ...] = (
     Evidencia(
         chave="gradiente",
         rotulo="Direção do gradiente",
-        titulo="Os dois primeiros componentes principais",
+        titulo="Projeção das nacionalidades em PC1 × PC2",
         leitura=(
-            "Cada ponto é uma nacionalidade. A cor é a região atribuída pelo algoritmo — "
-            "as cores se **interpenetram** no plano, e isso não é defeito do gráfico: é o "
-            "achado. Os dois eixos retêm 56,1% da variabilidade, ou seja, **43,9% da "
-            "informação não está neste plano** e nenhuma leitura visual o substitui."
+            "As {n_elegiveis} nacionalidades projetadas nos dois primeiros componentes. A cor "
+            "indica a partição atribuída pelo KMeans. As regiões se **sobrepõem** no plano — "
+            "coerente com a silhueta de {silhueta} e não um artefato da projeção. PC1 e PC2 "
+            "retêm {variancia_acumulada} da variância; os {variancia_restante} restantes não "
+            "estão representados aqui, e nenhuma leitura visual os substitui."
         ),
     ),
     Evidencia(
         chave="cargas",
         rotulo="O que define o eixo",
-        titulo="Peso de cada atributo nos componentes",
+        titulo="Cargas dos atributos nos componentes principais",
         leitura=(
-            "O primeiro componente é dominado por **qualificação e remuneração**, com "
-            "sinais opostos entre superior completo e trabalho em tempo parcial. Isso dá "
-            "nome ao eixo: não é 'ser estrangeiro', é **posição no mercado de trabalho "
-            "formal brasileiro**."
+            "Correlações entre atributo e componente. PC1 é um eixo de qualificação–"
+            "remuneração: `pct_superior` ({carga_superior_pc1}) e `salario_medio_sm` carregam "
+            "no mesmo sentido, e `pct_tempo_parcial` no sentido oposto. PC2 contrasta estrutura "
+            "etária e composição de gênero. O eixo não separa nacionalidades por origem — "
+            "posiciona-as na estrutura ocupacional brasileira."
         ),
     ),
     Evidencia(
         chave="regioes",
         rotulo="As regiões",
-        titulo="Perfil mediano de cada região",
+        titulo="Medianas por região, com valores observados nas células",
         leitura=(
-            "A cor indica posição **relativa dentro de cada coluna** — o valor real está "
-            "escrito na célula. O contraste é de escala salarial (≈ 1,6 SM contra ≈ 6,7 SM), "
-            "não de cinco graus intermediários: por isso falamos de duas pontas e um meio."
+            "A cor indica posição relativa **dentro da coluna**; o valor observado está na "
+            "célula. As medianas de remuneração são {salarios} SM — razão de {razao_salarios}× "
+            "entre extremos, com patamar intermediário. A proporção de escolaridade superior "
+            "acompanha a mesma ordenação. Não há gradação uniforme ao longo das três regiões."
         ),
     ),
     Evidencia(
         chave="composicao",
         rotulo="Tamanho das regiões",
-        titulo="Quantas nacionalidades e quantos vínculos em cada região",
+        titulo="Nacionalidades e volume de vínculos por região",
         leitura=(
-            "A região com mais nacionalidades concentra a maior parte **dos casos**, mas "
-            "não necessariamente dos vínculos. Distinguir contagem de nacionalidades de "
-            "volume de vínculos evita o erro de tratar 57 países pequenos como equivalentes "
-            "a 57 países grandes."
+            "Contagem de nacionalidades e volume de vínculos não são proporcionais: "
+            "{n_maior} nacionalidades concentram {participacao_maior} dos vínculos da janela. "
+            "As duas ponderações são relatadas porque respondem a perguntas distintas — "
+            "quantos países, e quanta força de trabalho."
         ),
     ),
     Evidencia(
         chave="regra_k",
         rotulo="A regra de k",
-        titulo="Por que três regiões e não cinco",
+        titulo="Critérios de escolha de k",
         leitura=(
-            "Mostramos **todos** os k avaliados, inclusive os descartados. k = 5 a 8 "
-            "produzem grupos de uma única nacionalidade — não são regiões. E k = 2 é "
-            "recusado por outro motivo: KMeans e Ward discordam quase por completo "
-            "(ARI ≈ 0,007), então os 'dois grupos' seriam efeito do algoritmo, não do "
-            "dado. Note que a silhueta é **baixa em todos os k**: a estrutura é fraca, e "
-            "dizer isso faz parte do resultado."
+            "Todos os k avaliados são exibidos, inclusive os rejeitados. k ≥ "
+            "{primeiro_k_inadmissivel} produzem grupos de tamanho 1 — inadmissíveis pelo piso "
+            "de {minimo_grupo} nacionalidades. k=2 é rejeitado por critério distinto: a "
+            "concordância KMeans × Ward cai a {acordo_k2}, abaixo do limiar de "
+            "{acordo_minimo}, o que caracteriza partição sensível ao método. Em k={k} a "
+            "concordância é de {acordo} e a silhueta, {silhueta} — valor baixo em todos os k, "
+            "o que indica estrutura fraca."
         ),
     ),
     Evidencia(
         chave="estabilidade",
         rotulo="Robustez",
-        titulo="Quanto a partição oscila sob reamostragem",
+        titulo="ARI sob reamostragem — distribuição por k",
         leitura=(
-            "Cada ponto é uma reamostragem de 80% dos casos. A faixa é larga, e é por isso "
-            "que o dashboard exibe **a faixa e o mínimo**, não só a média. Um k cuja média é "
-            "alta mas cujo mínimo é baixo não é um k estável — é um k sortudo."
+            "Reamostragem sem reposição de 80% dos casos, {repeticoes} repetições, semente "
+            "fixa. Reportam-se média ({ari_media}), desvio-padrão e mínimo ({ari_minimo}): a "
+            "média isolada não distingue partição estável de uma cuja estabilidade depende de "
+            "quais casos entram. O mínimo delimita a cauda inferior da distribuição."
         ),
     ),
     Evidencia(
         chave="arvores",
         rotulo="As árvores",
-        titulo="Duas árvores, dois alvos, um limite comum",
+        titulo="Ganho sobre o classificador majoritário",
         leitura=(
-            "Comparamos sempre contra o **baseline da classe majoritária**: sem isso, uma "
-            "acurácia de 0,84 pareceria excelente mesmo quando o baseline já é 0,60. "
-            "Os dois alvos não são igualmente exigentes: a árvore B compara apenas os "
-            "**tercis extremos** de remuneração (o terço do meio é descartado), então a "
-            "tarefa é mais fácil por construção, e qualificação e salário caminham juntos "
-            "por definição do mercado. A leitura honesta de B é *'qualificação separa bem "
-            "os extremos'* — **não** *'qualificação explica o salário'*. As regras são "
-            "descritivas desta amostra e não estabelecem causalidade."
+            "Validação cruzada estratificada, com regularização por `max_depth={profundidade}`, "
+            "`min_samples_leaf={min_folha}` e `min_impurity_decrease={ganho}`. A referência é o "
+            "classificador majoritário. O alvo da árvore A (Q > 1) não figura entre os "
+            "preditores; o da árvore B é construído sobre os **tercis extremos** de "
+            "remuneração, com o terço intermediário descartado — o que eleva a separabilidade "
+            "por construção. A leitura adequada de B é associação entre qualificação e "
+            "extremos de remuneração; não estima efeito de qualificação sobre remuneração. "
+            "Ambas produzem regras descritivas desta amostra."
         ),
     ),
     Evidencia(
         chave="quem",
-        rotulo="Quem está onde",
-        titulo="As nacionalidades e sua região",
+        rotulo="Tabela",
+        titulo="Tabela de rastreabilidade",
         leitura=(
-            "A tabela é a base de tudo que está acima — nenhum ponto dos gráficos existe "
-            "fora dela. É o artefato a conferir quando um número do slide não bater com o "
-            "do dashboard."
+            "As {n_tabela} nacionalidades de maior Q, com partição, índice Q, volume de "
+            "vínculos na janela e os seis atributos de perfil. Nenhum ponto dos gráficos "
+            "anteriores existe fora desta tabela."
         ),
     ),
 )
