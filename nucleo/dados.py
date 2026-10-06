@@ -233,7 +233,7 @@ class DadosQ7:
             "n_abaixo_1": int(self.perfis["Q_medio"].le(1).sum()),
             "q_mediana": formatar_decimal(indice.median(), 2),
             "q_minimo": formatar_decimal(indice.min(), 2),
-            "q_maximo": formatar_decimal(indice.max(), 1),
+            "q_maximo": formatar_decimal(indice.max(), 2),
             "nacionalidade_q_maximo": maior["nacionalidade"],
             "vinculos_q_maximo": formatar_inteiro(maior["V_total"]),
             "n_extremos": len(extremos),
