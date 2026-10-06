@@ -11,6 +11,7 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from nucleo.config import (
@@ -19,7 +20,7 @@ from nucleo.config import (
     NACIONALIDADES_NA_TABELA,
     pasta_dados,
 )
-from nucleo.formatos import formatar_decimal, formatar_percentual
+from nucleo.formatos import formatar_decimal, formatar_inteiro, formatar_percentual
 
 INSTRUCAO_GERACAO = (
     "Execute a FASE 9 do notebook Integrador_Base_Unificada_REV1.ipynb no Colab e "
@@ -56,6 +57,35 @@ COLUNAS_OBRIGATORIAS: dict[str, tuple[str, ...]] = {
     "arvores": ("arvore", "descricao_alvo", "acuracia_cv", "baseline", "regra"),
 }
 
+# Campos que a Q4 usa quando existem, mas que não invalidam os artefatos gerados
+# antes de o contrato prevê-los. A Q4 degrada com aviso em vez de falhar.
+COLUNAS_OPCIONAIS: dict[str, tuple[str, ...]] = {
+    "perfis": ("R_total", "anos_observados"),
+}
+
+# Faixas do índice Q usadas pela Q4. Os cortes são redondos de propósito: 1 é a paridade
+# (as duas fontes coincidem) e 1,5 separa a sobre-representação moderada da acentuada.
+FAIXAS_Q: tuple[tuple[float, float, str], ...] = (
+    (0.0, 0.5, "Q ≤ 0,5"),
+    (0.5, 1.0, "0,5 < Q ≤ 1"),
+    (1.0, 1.5, "1 < Q ≤ 1,5"),
+    (1.5, float("inf"), "Q > 1,5"),
+)
+
+
+def correlacoes(x: pd.Series, y: pd.Series) -> tuple[float, float]:
+    """Pearson e Spearman entre duas séries.
+
+    Spearman é calculado sobre os postos, sem depender do scipy — e é ele que importa
+    para o índice Q, cuja cauda pesada torna o Pearson enganoso.
+    """
+    pares = pd.DataFrame({"x": x, "y": y}).dropna()
+    if len(pares) < 3:
+        return float("nan"), float("nan")
+    pearson = float(np.corrcoef(pares["x"], pares["y"])[0, 1])
+    spearman = float(np.corrcoef(pares["x"].rank(), pares["y"].rank())[0, 1])
+    return pearson, spearman
+
 
 @dataclass(frozen=True)
 class DadosQ7:
@@ -85,6 +115,10 @@ class DadosQ7:
     def regiao_do_k(self) -> pd.Series:
         """Linha do diagnóstico correspondente ao k escolhido."""
         return self.diagnostico.loc[self.diagnostico["k"].eq(self.k_escolhido)].iloc[0]
+
+    def tem(self, chave: str, coluna: str) -> bool:
+        """Indica se um campo opcional está presente nos artefatos carregados."""
+        return coluna in getattr(self, chave).columns
 
     def valores_de_estabilidade(self, k: int) -> list[float]:
         """Valores individuais de ARI das reamostragens para um dado k."""
@@ -161,6 +195,64 @@ class DadosQ7:
         for parcial in (self._valores_da_particao(), self._valores_das_regioes(), self._valores_das_arvores()):
             valores.update(parcial)
         return valores
+
+    def faixas_de_q(self) -> pd.DataFrame:
+        """Perfil das nacionalidades por faixa do índice Q — a tabela central da Q4."""
+        linhas = []
+        for inicio, fim, rotulo in FAIXAS_Q:
+            recorte = self.perfis[self.perfis["Q_medio"].gt(inicio) & self.perfis["Q_medio"].le(fim)]
+            linhas.append({
+                "faixa": rotulo,
+                "nacionalidades": len(recorte),
+                "salario_mediano": recorte["salario_medio_sm"].median(),
+                "superior_completo": recorte["pct_superior"].median(),
+                "vinculos": recorte["V_total"].sum(),
+            })
+        quadro = pd.DataFrame(linhas)
+        quadro["participacao_vinculos"] = quadro["vinculos"] / quadro["vinculos"].sum()
+        return quadro
+
+    def valores_q4_para_texto(self) -> dict[str, object]:
+        """Números da Q4: distribuição do índice, concentração e associações."""
+        indice = self.perfis["Q_medio"]
+        acima = self.perfis[self.perfis["Q_medio"].gt(1)]
+        extremos = self.perfis[self.perfis["Q_medio"].gt(5)]
+        maior = self.perfis.loc[indice.idxmax()]
+        faixas = self.faixas_de_q()
+        pearson_salario, spearman_salario = correlacoes(
+            self.perfis["Q_medio"], self.perfis["salario_medio_sm"]
+        )
+        _, spearman_volume = correlacoes(self.perfis["Q_medio"], self.perfis["V_total"])
+        return {
+            "n_elegiveis": self.n_elegiveis,
+            "n_acima_1": len(acima),
+            "pct_acima_1": formatar_percentual(len(acima) / len(self.perfis)),
+            "participacao_acima_1": formatar_percentual(
+                acima["V_total"].sum() / self.perfis["V_total"].sum()
+            ),
+            "n_abaixo_1": int(self.perfis["Q_medio"].le(1).sum()),
+            "q_mediana": formatar_decimal(indice.median(), 2),
+            "q_minimo": formatar_decimal(indice.min(), 2),
+            "q_maximo": formatar_decimal(indice.max(), 1),
+            "nacionalidade_q_maximo": maior["nacionalidade"],
+            "vinculos_q_maximo": formatar_inteiro(maior["V_total"]),
+            "n_extremos": len(extremos),
+            "pct_vinculos_extremos": formatar_percentual(
+                extremos["V_total"].sum() / self.perfis["V_total"].sum()
+            ),
+            "pearson_salario": formatar_decimal(pearson_salario, 3),
+            "spearman_salario": formatar_decimal(spearman_salario, 3),
+            "spearman_volume": formatar_decimal(spearman_volume, 3),
+            "salario_faixa_baixa": formatar_decimal(faixas["salario_mediano"].max(), 3),
+            "salario_faixa_alta": formatar_decimal(faixas["salario_mediano"].min(), 3),
+            "faixas_salarios": " · ".join(
+                formatar_decimal(valor, 3) for valor in faixas["salario_mediano"]
+            ),
+            "n_faixa_alta": int(faixas["nacionalidades"].iloc[-1]),
+            "participacao_faixa_q_alto": formatar_percentual(
+                faixas.loc[faixas["faixa"].str.startswith("Q > 1,5"), "participacao_vinculos"].iloc[0]
+            ),
+        }
 
 
 def artefatos_faltantes(pasta: Path | None = None) -> list[str]:

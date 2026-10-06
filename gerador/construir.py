@@ -3,12 +3,14 @@
 Lê os mesmos artefatos que o notebook exporta (o contrato da FASE 9 não muda) e escreve
 `docs/index.html`. Toda a camada analítica é reaproveitada:
 
-  nucleo/dados.py     leitura e validação do esquema
-  nucleo/graficos.py  as figuras
-  nucleo/textos.py    a narrativa
-  nucleo/formatos.py  formatação numérica brasileira
+  nucleo/dados.py       leitura, validação do esquema e valores derivados
+  nucleo/graficos*.py   as figuras, por pergunta
+  nucleo/textos*.py     a narrativa, por pergunta
+  nucleo/formatos.py    formatação numérica brasileira
 
-O que muda é só a apresentação: em vez de o Streamlit desenhar, o HTML é gerado.
+Cada aba **declara** o seu conteúdo num `Conteudo`, e um único renderizador monta o HTML.
+O contrato do desenho aprovado fica implementado uma vez só, o que torna acrescentar a
+próxima pergunta uma declaração em vez de código novo.
 
 Uso:
     .venv/bin/python gerador/construir.py
@@ -18,16 +20,19 @@ from __future__ import annotations
 
 import sys
 import unicodedata
+from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 
-import pandas as pd
+import plotly.graph_objects as go
 
 RAIZ = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(RAIZ))
 
-from gerador import componentes, tema  # noqa: E402
-from nucleo import graficos, textos  # noqa: E402
+from gerador import componentes  # noqa: E402
+from nucleo import graficos, graficos_q4, textos, textos_q4  # noqa: E402
 from nucleo.config import (  # noqa: E402
+    ABA_Q4,
     ABA_Q7,
     ABAS,
     COLUNAS_ATRIBUTOS,
@@ -35,7 +40,12 @@ from nucleo.config import (  # noqa: E402
     ROTULOS_ATRIBUTOS,
 )
 from nucleo.dados import DadosQ7, carregar, pasta_dados  # noqa: E402
-from nucleo.formatos import formatar_atributo, formatar_decimal, formatar_inteiro  # noqa: E402
+from nucleo.formatos import (  # noqa: E402
+    formatar_atributo,
+    formatar_decimal,
+    formatar_inteiro,
+    formatar_percentual,
+)
 
 TITULO = "Dashboard analítico • SISMIGRA × RAIS-CTPS"
 
@@ -57,53 +67,114 @@ LIMITES_PENDENTES = (
     "interpretação permitida",
 )
 
-FIGURAS = {
-    "gradiente": graficos.dispersao_pca,
-    "cargas": graficos.cargas_pca,
-    "regioes": graficos.mapa_regioes,
-    "composicao": graficos.composicao_regioes,
-    "regra_k": graficos.diagnostico_k,
-    "estabilidade": graficos.estabilidade_por_k,
-    "arvores": graficos.arvores_comparacao,
-}
+ConstrutorDeFigura = Callable[[DadosQ7], go.Figure]
+ValoresDaNarrativa = Callable[[DadosQ7], dict[str, object]]
 
 
-def _cartoes(artefatos: DadosQ7) -> str:
-    inicio, fim = artefatos.configuracao["janela"]
+@dataclass(frozen=True)
+class Conteudo:
+    """O que uma aba declara. Como isso vira HTML é responsabilidade do renderizador."""
+
+    cartoes: tuple[tuple[str, tuple[str, ...]], ...]
+    evidencias: tuple[textos.Evidencia, ...]
+    figuras: dict[str, ConstrutorDeFigura]
+    valores: ValoresDaNarrativa
+    rotulo_curto: Callable[[textos.Evidencia], str]
+    resposta: str
+    indicadores: Callable[[DadosQ7], list[tuple[str, str]]]
+    limites: tuple[tuple[str, str], ...]
+    ponte: str
+    tabela: Callable[[DadosQ7], str] | None = None
+    chave_tabela: str = ""
+
+
+# ---------------------------------------------------------------------------
+# Renderizador — implementa o contrato do desenho aprovado uma única vez
+# ---------------------------------------------------------------------------
+
+
+def _cartoes(conteudo: Conteudo) -> str:
     return componentes.linha_de_cartoes(
-        (
-            componentes.cartao(
-                "Cobertura",
-                (
-                    "RAIS-CTPS (estoque em 31/12) · SISMIGRA-ATIVOS (dezembro)",
-                    f"Anos: {inicio}–{fim} — janela fixa",
-                    "Variáveis: índice Q + 6 atributos de perfil",
-                ),
-            ),
-            componentes.cartao(
-                "Filtros",
-                (
-                    f"Ano: fixo em {inicio}–{fim}",
-                    f"Nacionalidade: as {artefatos.n_elegiveis} elegíveis",
-                    "Top N: só no tamanho da tabela",
-                ),
-            ),
-            componentes.cartao(
-                "Nota metodológica",
-                (
-                    "Unidade: nacionalidade — nunca indivíduo",
-                    f"Cobertura: {artefatos.n_elegiveis} de {artefatos.n_universo} comparáveis",
-                    "Interpretação: gradiente associativo, não causal",
-                ),
-            ),
-        )
+        tuple(componentes.cartao(titulo, linhas) for titulo, linhas in conteudo.cartoes)
     )
 
 
-def _tabela_nacionalidades(artefatos: DadosQ7) -> str:
-    tabela = artefatos.perfis.copy()
-    ordenada = tabela.sort_values("Q_medio", ascending=False).head(NACIONALIDADES_NA_TABELA)
-    cabecalhos = ("Nacionalidade", "Região", "Q", "Vínculos", *(ROTULOS_ATRIBUTOS[c] for c in COLUNAS_ATRIBUTOS))
+def _corpo_da_evidencia(
+    conteudo: Conteudo,
+    artefatos: DadosQ7,
+    evidencia: textos.Evidencia,
+    valores: dict[str, object],
+) -> str:
+    if conteudo.tabela and evidencia.chave == conteudo.chave_tabela:
+        corpo = conteudo.tabela(artefatos)
+    else:
+        figura = conteudo.figuras[evidencia.chave](artefatos)
+        corpo = componentes.grafico(figura, f"fig-{evidencia.chave}")
+    return corpo + componentes.leitura(textos.preencher(evidencia.leitura, valores))
+
+
+def _cartao_de_evidencia(
+    conteudo: Conteudo, artefatos: DadosQ7, valores: dict[str, object]
+) -> str:
+    opcoes = ((item.chave, conteudo.rotulo_curto(item)) for item in conteudo.evidencias)
+    blocos = (
+        componentes.evidencia(
+            item.chave, _corpo_da_evidencia(conteudo, artefatos, item, valores), indice == 0
+        )
+        for indice, item in enumerate(conteudo.evidencias)
+    )
+    return (
+        '<div class="cartao cartao-alto"><div class="titulo-bloco">Evidência principal</div>'
+        f"{componentes.seletor_de_evidencia(opcoes, conteudo.evidencias[0].chave)}"
+        f"{''.join(blocos)}</div>"
+    )
+
+
+def _cartao_de_resposta(
+    conteudo: Conteudo, artefatos: DadosQ7, valores: dict[str, object]
+) -> str:
+    detalhado = ((rotulo, textos.preencher(texto, valores)) for rotulo, texto in conteudo.limites)
+    resposta = componentes.para_html(textos.preencher(conteudo.resposta, valores))
+    return (
+        '<div class="cartao cartao-alto"><div class="titulo-bloco">Resposta + limites</div>'
+        f'<div class="resposta">{resposta}</div>'
+        f"{componentes.indicadores(conteudo.indicadores(artefatos))}"
+        f"{componentes.lista_de_limites(rotulo for rotulo, _ in conteudo.limites)}"
+        f"{componentes.detalhamento(detalhado)}</div>"
+    )
+
+
+def _secao(conteudo: Conteudo, artefatos: DadosQ7) -> str:
+    valores = conteudo.valores(artefatos)
+    evidencias = _cartao_de_evidencia(conteudo, artefatos, valores)
+    resposta = _cartao_de_resposta(conteudo, artefatos, valores)
+    ponte = componentes.ponte(
+        "Onde isto toca o problema do projeto",
+        textos.preencher(conteudo.ponte, valores),
+    )
+    return (
+        f"{_cartoes(conteudo)}"
+        f'<div class="linha-principal">{evidencias}{resposta}</div>'
+        f"{ponte}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Q7 — Análise multivariada
+# ---------------------------------------------------------------------------
+
+
+def _tabela_q7(artefatos: DadosQ7) -> str:
+    ordenada = (
+        artefatos.perfis.sort_values("Q_medio", ascending=False).head(NACIONALIDADES_NA_TABELA)
+    )
+    cabecalhos = (
+        "Nacionalidade",
+        "Região",
+        "Q",
+        "Vínculos",
+        *(ROTULOS_ATRIBUTOS[coluna] for coluna in COLUNAS_ATRIBUTOS),
+    )
     linhas = [
         (
             linha["nacionalidade"],
@@ -117,64 +188,157 @@ def _tabela_nacionalidades(artefatos: DadosQ7) -> str:
     return componentes.tabela(cabecalhos, linhas)
 
 
-def _bloco_de_evidencia(
-    artefatos: DadosQ7, evidencia: textos.Evidencia, ativa: bool, valores: dict[str, object]
-) -> str:
-    if evidencia.chave == "quem":
-        corpo = _tabela_nacionalidades(artefatos)
-    else:
-        figura = FIGURAS[evidencia.chave](artefatos)
-        corpo = componentes.grafico(figura, f"q7-{evidencia.chave}")
-    return componentes.evidencia(
-        evidencia.chave, corpo + componentes.leitura(textos.preencher(evidencia.leitura, valores)), ativa
-    )
-
-
-def _cartao_de_evidencia(artefatos: DadosQ7, valores: dict[str, object]) -> str:
-    opcoes = ((e.chave, textos.rotulo_curto(e)) for e in textos.EVIDENCIAS)
-    blocos = (
-        _bloco_de_evidencia(artefatos, evidencia, indice == 0, valores)
-        for indice, evidencia in enumerate(textos.EVIDENCIAS)
-    )
-    return (
-        '<div class="cartao cartao-alto"><div class="titulo-bloco">Evidência principal</div>'
-        f"{componentes.seletor_de_evidencia(opcoes, textos.EVIDENCIAS[0].chave)}"
-        f"{''.join(blocos)}</div>"
-    )
-
-
-def _cartao_de_resposta(artefatos: DadosQ7, valores: dict[str, object]) -> str:
+def _indicadores_q7(artefatos: DadosQ7) -> list[tuple[str, str]]:
     resumo = graficos.resumo_numerico(artefatos)
-    limites = (
-        ("Denominador", textos.DENOMINADOR_EXPLICITO),
-        ("Critério de elegibilidade", textos.CRITERIO_ELEGIBILIDADE),
-        ("Cobertura observada", textos.COBERTURA_OBSERVADA),
-        ("Interpretação permitida", textos.INTERPRETACAO_PERMITIDA),
-        ("Interpretação não permitida", textos.INTERPRETACAO_PROIBIDA),
-    )
-    indicadores = componentes.indicadores((
+    return [
         ("Regiões", resumo["Regiões"]),
         ("Silhueta", resumo["Silhueta no k escolhido"]),
         ("KMeans × Ward", resumo["KMeans × Ward"]),
         ("Estabilidade", resumo["Estabilidade (média)"] + " de média"),
-    ))
-    detalhado = ((rotulo, textos.preencher(texto, valores)) for rotulo, texto in limites)
-    return (
-        '<div class="cartao cartao-alto"><div class="titulo-bloco">Resposta + limites</div>'
-        f'<div class="resposta">{componentes.para_html(textos.preencher(textos.RESPOSTA_SINTETICA, valores))}</div>'
-        f"{indicadores}"
-        f"{componentes.lista_de_limites(rotulo for rotulo, _ in limites)}"
-        f"{componentes.detalhamento(detalhado)}</div>"
+    ]
+
+
+def _conteudo_q7(artefatos: DadosQ7) -> Conteudo:
+    inicio, fim = artefatos.configuracao["janela"]
+    return Conteudo(
+        cartoes=(
+            (
+                "Cobertura",
+                (
+                    "RAIS-CTPS (estoque em 31/12) · SISMIGRA-ATIVOS (dezembro)",
+                    f"Anos: {inicio}–{fim} — janela fixa",
+                    "Variáveis: índice Q + 6 atributos de perfil",
+                ),
+            ),
+            (
+                "Filtros",
+                (
+                    f"Ano: fixo em {inicio}–{fim}",
+                    f"Nacionalidade: as {artefatos.n_elegiveis} elegíveis",
+                    "Top N: só no tamanho da tabela",
+                ),
+            ),
+            (
+                "Nota metodológica",
+                (
+                    "Unidade: nacionalidade — nunca indivíduo",
+                    f"Cobertura: {artefatos.n_elegiveis} de {artefatos.n_universo} comparáveis",
+                    "Interpretação: gradiente associativo, não causal",
+                ),
+            ),
+        ),
+        evidencias=textos.EVIDENCIAS,
+        figuras={
+            "gradiente": graficos.dispersao_pca,
+            "cargas": graficos.cargas_pca,
+            "regioes": graficos.mapa_regioes,
+            "composicao": graficos.composicao_regioes,
+            "regra_k": graficos.diagnostico_k,
+            "estabilidade": graficos.estabilidade_por_k,
+            "arvores": graficos.arvores_comparacao,
+        },
+        valores=lambda dados: dados.valores_para_texto(),
+        rotulo_curto=textos.rotulo_curto,
+        resposta=textos.RESPOSTA_SINTETICA,
+        indicadores=_indicadores_q7,
+        limites=(
+            ("Denominador", textos.DENOMINADOR_EXPLICITO),
+            ("Critério de elegibilidade", textos.CRITERIO_ELEGIBILIDADE),
+            ("Cobertura observada", textos.COBERTURA_OBSERVADA),
+            ("Interpretação permitida", textos.INTERPRETACAO_PERMITIDA),
+            ("Interpretação não permitida", textos.INTERPRETACAO_PROIBIDA),
+        ),
+        ponte=textos.RESPOSTA_ANCORADA_NO_PROBLEMA,
+        tabela=_tabela_q7,
+        chave_tabela="quem",
     )
 
 
-def _secao_q7(artefatos: DadosQ7) -> str:
-    valores = artefatos.valores_para_texto()
-    return (
-        f"{_cartoes(artefatos)}"
-        f'<div class="linha-principal">{_cartao_de_evidencia(artefatos, valores)}'
-        f"{_cartao_de_resposta(artefatos, valores)}</div>"
-        f"{componentes.ponte('Onde isto toca o problema do projeto', textos.preencher(textos.RESPOSTA_ANCORADA_NO_PROBLEMA, valores))}"
+# ---------------------------------------------------------------------------
+# Q4 — Representação: o índice Q
+# ---------------------------------------------------------------------------
+
+
+def _tabela_q4(artefatos: DadosQ7) -> str:
+    faixas = artefatos.faixas_de_q()
+    cabecalhos = (
+        "Faixa de Q",
+        "Nacionalidades",
+        "Salário mediano",
+        "Superior completo",
+        "Vínculos na janela",
+        "Participação",
+    )
+    linhas = [
+        (
+            linha["faixa"],
+            formatar_inteiro(linha["nacionalidades"]),
+            formatar_decimal(linha["salario_mediano"], 3) + " SM",
+            formatar_percentual(linha["superior_completo"]),
+            formatar_inteiro(linha["vinculos"]),
+            formatar_percentual(linha["participacao_vinculos"]),
+        )
+        for _, linha in faixas.iterrows()
+    ]
+    return componentes.tabela(cabecalhos, linhas)
+
+
+def _indicadores_q4(artefatos: DadosQ7) -> list[tuple[str, str]]:
+    valores = artefatos.valores_q4_para_texto()
+    return [
+        ("Nacionalidades com Q > 1", f"{valores['n_acima_1']} de {valores['n_elegiveis']}"),
+        ("Mediana do índice", str(valores["q_mediana"])),
+        ("Spearman(Q, remuneração)", str(valores["spearman_salario"])),
+        (
+            "Extremos (Q > 5)",
+            f"{valores['n_extremos']} casos · {valores['pct_vinculos_extremos']} dos vínculos",
+        ),
+    ]
+
+
+def _conteudo_q4(artefatos: DadosQ7) -> Conteudo:
+    inicio, fim = artefatos.configuracao["janela"]
+    return Conteudo(
+        cartoes=(
+            (
+                "Cobertura",
+                (
+                    "RAIS-CTPS (vínculos) e SISMIGRA-ATIVOS (registros), dezembro de cada ano",
+                    f"Anos: {inicio}–{fim} — janela fixa",
+                    "Variável: índice Q por nacionalidade",
+                ),
+            ),
+            (
+                "Filtros",
+                (
+                    f"Ano: fixo em {inicio}–{fim} (a leitura por ano é da Q5)",
+                    f"Nacionalidade: as {artefatos.n_elegiveis} com Q definido e volume mínimo",
+                    "Top N: só no tamanho da tabela",
+                ),
+            ),
+            (
+                "Nota metodológica",
+                (
+                    "Q = participação nos vínculos ÷ participação nos registros",
+                    "Denominadores com conceitos de UF distintos",
+                    "Associação descritiva — não mede integração",
+                ),
+            ),
+        ),
+        evidencias=textos_q4.EVIDENCIAS,
+        figuras={
+            "distribuicao": graficos_q4.distribuicao_q,
+            "cauda": graficos_q4.q_versus_volume,
+            "remuneracao": graficos_q4.q_versus_remuneracao,
+        },
+        valores=lambda dados: dados.valores_q4_para_texto(),
+        rotulo_curto=textos_q4.rotulo_curto,
+        resposta=textos_q4.RESPOSTA_SINTETICA,
+        indicadores=_indicadores_q4,
+        limites=textos_q4.LIMITES,
+        ponte=textos_q4.PONTE,
+        tabela=_tabela_q4,
+        chave_tabela="faixas",
     )
 
 
@@ -210,7 +374,7 @@ def _slug(nome: str) -> str:
     return "-".join(sem_acento.lower().replace("&", " ").split())
 
 
-def _secao(conteudo: str, slug: str, ativa: bool) -> str:
+def _marcador(conteudo: str, slug: str, ativa: bool) -> str:
     classe = "secao ativa" if ativa else "secao"
     return f'<section class="{classe}" id="secao-{slug}">{conteudo}</section>'
 
@@ -218,10 +382,16 @@ def _secao(conteudo: str, slug: str, ativa: bool) -> str:
 def construir(destino: Path = SAIDA / "index.html") -> Path:
     """Gera o dashboard completo em um único arquivo."""
     artefatos = carregar()
+    implementadas: dict[str, Callable[[DadosQ7], Conteudo]] = {
+        ABA_Q7: _conteudo_q7,
+        ABA_Q4: _conteudo_q4,
+    }
     identificadas = [(_slug(aba), aba) for aba in ABAS]
     secoes = [
-        _secao(
-            _secao_q7(artefatos) if nome == ABA_Q7 else _secao_pendente(nome),
+        _marcador(
+            _secao(implementadas[nome](artefatos), artefatos)
+            if nome in implementadas
+            else _secao_pendente(nome),
             slug,
             indice == 0,
         )

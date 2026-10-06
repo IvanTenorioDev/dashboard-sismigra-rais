@@ -1,7 +1,7 @@
-"""Figuras Plotly do dashboard.
+"""Figuras da aba Q7 — análise multivariada da inserção laboral.
 
-Todas as figuras nascem aqui. As páginas apenas escolhem qual exibir — é o que garante
-consistência visual e um único ponto de correção quando um gráfico precisa mudar.
+As figuras nascem aqui e as páginas apenas escolhem qual exibir. O que é comum a todas
+as abas — paleta das regiões, título, altura — vem de `nucleo/graficos_base.py`.
 """
 
 from __future__ import annotations
@@ -11,31 +11,18 @@ import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-from nucleo.config import AZUL, CINZA, COLUNAS_ATRIBUTOS, CORES_REGIAO, LARANJA, ROTULOS_ATRIBUTOS
+from nucleo.config import AZUL, CINZA, COLUNAS_ATRIBUTOS, LARANJA, ROTULOS_ATRIBUTOS
 from nucleo.dados import DadosQ7
 from nucleo.formatos import formatar_atributo, formatar_decimal, formatar_percentual
-
-ALTURA = 460
-MARGEM = {"l": 60, "r": 30, "t": 60, "b": 60}
-HOVER_REGIAO = "região %{color}"
-FONTE_HOVER = 'family="Segoe UI, sans-serif" size=12'
-
-
-def nome_regiao(regiao: int) -> str:
-    """Rótulo humano de uma região."""
-    return f"Região {int(regiao)}"
-
-
-def _regioes_presentes(tabela: pd.DataFrame) -> list[int]:
-    return sorted(int(valor) for valor in tabela["regiao"].unique())
-
-
-def _cor_da_regiao(regiao: int) -> str:
-    return CORES_REGIAO.get(int(regiao), CINZA)
-
-
-def _titulo_padrao(titulo: str) -> dict[str, object]:
-    return {"text": titulo, "x": 0.01, "xanchor": "left", "font": {"size": 16, "color": AZUL}}
+from nucleo.graficos_base import (
+    ALTURA,
+    ALTURA_ALTA,
+    MARGEM,
+    cor_da_regiao,
+    nome_regiao,
+    regioes_presentes,
+    titulo_figura,
+)
 
 
 def dispersao_pca(artefatos: DadosQ7) -> go.Figure:
@@ -47,11 +34,11 @@ def dispersao_pca(artefatos: DadosQ7) -> go.Figure:
     )
     campos = ("nacionalidade", *complementares, "V_total")
     figura = go.Figure()
-    for regiao in _regioes_presentes(pontos):
+    for regiao in regioes_presentes(pontos):
         recorte = pontos[pontos["regiao"].eq(regiao)]
         figura.add_trace(go.Scatter(
             x=recorte["PC1"], y=recorte["PC2"], mode="markers", name=nome_regiao(regiao),
-            marker=dict(size=9, color=_cor_da_regiao(regiao), line=dict(width=0.6, color="white")),
+            marker=dict(size=9, color=cor_da_regiao(regiao), line=dict(width=0.6, color="white")),
             customdata=np.column_stack([recorte[campo].to_numpy() for campo in campos]),
             hovertemplate=(
                 "<b>%{customdata[0]}</b><br>Q = %{customdata[1]:.2f}"
@@ -62,7 +49,7 @@ def dispersao_pca(artefatos: DadosQ7) -> go.Figure:
     variancia = artefatos.variancia.set_index("componente")["variancia_explicada"]
     figura.update_layout(
         template="plotly_white", height=ALTURA, margin=MARGEM, hoverlabel=dict(font=dict(size=12)),
-        title=_titulo_padrao("Projeção das nacionalidades em PC1 × PC2, por região"),
+        title=titulo_figura("Projeção das nacionalidades em PC1 × PC2, por região"),
         legend=dict(orientation="h", y=-0.18, title_text=""),
     )
     figura.update_xaxes(title_text=f"PC1 ({formatar_percentual(variancia.get('PC1', float('nan')))} da variância)")
@@ -83,7 +70,7 @@ def cargas_pca(artefatos: DadosQ7) -> go.Figure:
         ))
     figura.update_layout(
         template="plotly_white", height=ALTURA, margin=MARGEM, barmode="group",
-        title=_titulo_padrao("Cargas dos atributos nos componentes principais"),
+        title=titulo_figura("Cargas dos atributos nos componentes principais"),
         legend=dict(orientation="h", y=-0.18, title_text=""),
     )
     figura.update_xaxes(title_text="carga (correlação atributo–componente)")
@@ -110,7 +97,7 @@ def mapa_regioes(artefatos: DadosQ7) -> go.Figure:
     ))
     figura.update_layout(
         template="plotly_white", height=ALTURA, margin=MARGEM,
-        title=_titulo_padrao("Medianas por região, com valores observados nas células"),
+        title=titulo_figura("Medianas por região, com valores observados nas células"),
     )
     figura.update_yaxes(autorange="reversed")
     return figura
@@ -119,10 +106,10 @@ def mapa_regioes(artefatos: DadosQ7) -> go.Figure:
 def faixas_de_q(artefatos: DadosQ7) -> go.Figure:
     """Distribuição do índice Q dentro de cada região."""
     figura = go.Figure()
-    for regiao in _regioes_presentes(artefatos.perfis):
+    for regiao in regioes_presentes(artefatos.perfis):
         recorte = artefatos.perfis[artefatos.perfis["regiao"].eq(regiao)]
         figura.add_trace(go.Box(
-            y=recorte["Q_medio"], name=nome_regiao(regiao), marker_color=_cor_da_regiao(regiao),
+            y=recorte["Q_medio"], name=nome_regiao(regiao), marker_color=cor_da_regiao(regiao),
             boxpoints="all", jitter=0.4, pointpos=0, marker=dict(size=5, opacity=0.6),
             hovertemplate="<b>%{text}</b><br>Q = %{y:.2f}<extra></extra>",
             text=recorte["nacionalidade"],
@@ -130,7 +117,7 @@ def faixas_de_q(artefatos: DadosQ7) -> go.Figure:
     figura.add_hline(y=1.0, line_dash="dash", line_color=LARANJA, annotation_text="Q = 1 (paridade)", annotation_position="top left")
     figura.update_layout(
         template="plotly_white", height=ALTURA, margin=MARGEM, showlegend=False,
-        title=_titulo_padrao("Distribuição do índice Q por região"),
+        title=titulo_figura("Distribuição do índice Q por região"),
     )
     figura.update_yaxes(title_text="índice Q na janela (mediana por nacionalidade)")
     return figura
@@ -170,8 +157,8 @@ def diagnostico_k(artefatos: DadosQ7) -> go.Figure:
         )
         figura.add_vline(x=artefatos.k_escolhido, line_dash="dash", line_color=LARANJA, row=linha, col=coluna)
     figura.update_layout(
-        template="plotly_white", height=640, margin=MARGEM, hovermode="x unified",
-        title=_titulo_padrao("Critérios de escolha de k — linha tracejada no k escolhido"),
+        template="plotly_white", height=ALTURA_ALTA, margin=MARGEM, hovermode="x unified",
+        title=titulo_figura("Critérios de escolha de k — linha tracejada no k escolhido"),
     )
     figura.update_xaxes(dtick=1, title_text="k")
     return figura
@@ -193,7 +180,7 @@ def estabilidade_por_k(artefatos: DadosQ7) -> go.Figure:
         ))
     figura.update_layout(
         template="plotly_white", height=ALTURA, margin=MARGEM, showlegend=False,
-        title=_titulo_padrao("ARI sob reamostragem, por k (80% dos casos, 30 repetições)"),
+        title=titulo_figura("ARI sob reamostragem, por k (80% dos casos, 30 repetições)"),
     )
     figura.update_yaxes(title_text="ARI contra a partição de referência")
     return figura
@@ -216,7 +203,7 @@ def arvores_comparacao(artefatos: DadosQ7) -> go.Figure:
     ))
     figura.update_layout(
         template="plotly_white", height=ALTURA, margin=MARGEM, barmode="group", bargap=0.35,
-        title=_titulo_padrao("Acurácia em validação cruzada contra o classificador majoritário"),
+        title=titulo_figura("Acurácia em validação cruzada contra o classificador majoritário"),
         legend=dict(orientation="h", y=-0.25, title_text=""),
     )
     figura.update_yaxes(title_text="acurácia", range=[0, 1.05])
@@ -231,7 +218,7 @@ def composicao_regioes(artefatos: DadosQ7) -> go.Figure:
         go.Bar(
             x=[nome_regiao(valor) for valor in regioes["regiao"]],
             y=regioes["n_nacionalidades"], name="Nacionalidades",
-            marker_color=[_cor_da_regiao(valor) for valor in regioes["regiao"]],
+            marker_color=[cor_da_regiao(valor) for valor in regioes["regiao"]],
             text=[f"{int(valor)}" for valor in regioes["n_nacionalidades"]], textposition="outside",
             hovertemplate="%{x}<br>%{y} nacionalidades<extra></extra>",
         ),
@@ -250,7 +237,7 @@ def composicao_regioes(artefatos: DadosQ7) -> go.Figure:
     )
     figura.update_layout(
         template="plotly_white", height=ALTURA, margin=MARGEM,
-        title=_titulo_padrao("Nacionalidades e volume de vínculos por região"),
+        title=titulo_figura("Nacionalidades e volume de vínculos por região"),
         legend=dict(orientation="h", y=-0.2, title_text=""),
     )
     figura.update_yaxes(title_text="nacionalidades elegíveis", secondary_y=False)

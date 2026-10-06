@@ -20,6 +20,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 import tempfile
 from pathlib import Path
@@ -362,7 +363,7 @@ def conferir_numeros() -> int:
 
 def validar_html() -> int:
     """Regenera o dashboard estático e confere a estrutura do HTML produzido."""
-    from gerador.construir import construir, _slug
+    from gerador.construir import _conteudo_q4, _conteudo_q7, construir, _slug
 
     destino = construir()
     html = destino.read_text(encoding="utf-8")
@@ -389,11 +390,35 @@ def validar_html() -> int:
     tabelas = html.count('<table class="tabela"')
     secoes_ativas = html.count('class="secao ativa"')
 
+    # O que se espera vem das próprias declarações, não de uma constante paralela: uma
+    # tabela substitui a figura da sua evidência.
+    artefatos = carregar()
+    declarados = (_conteudo_q7(artefatos), _conteudo_q4(artefatos))
+    esperado_graficos = sum(len(c.evidencias) - (1 if c.tabela else 0) for c in declarados)
+    esperado_tabelas = sum(1 for c in declarados if c.tabela)
+    esperado_evidencias = sum(len(c.evidencias) for c in declarados)
+
+    # `Plotly.newPlot` resolve o alvo por `getElementById`: um id repetido faz o
+    # gráfico ser desenhado no bloco externo e a leitura sair do cartão.
+    identificadores_usados = re.findall(r'\sid="([^"]+)"', html)
+    repetidos = sorted({valor for valor in identificadores_usados
+                        if identificadores_usados.count(valor) > 1})
+    if repetidos:
+        problemas.append(f"ids repetidos no HTML: {repetidos[:8]}")
+
+    evidencias = html.count('id="ev-')
+    if evidencias != esperado_evidencias:
+        problemas.append(
+            f"blocos de evidência: esperado {esperado_evidencias}, encontrado {evidencias}"
+        )
+
     print(f"gerado: {destino} ({destino.stat().st_size / 1024:,.0f} KB)")
     print(f"  abas: {len(identificadores)} | secções ativas na carga: {secoes_ativas}")
-    print(f"  gráficos embutidos: {graficos} | tabelas: {tabelas}")
-    if graficos < len(FIGURAS):
-        problemas.append(f"gráficos: esperado ao menos {len(FIGURAS)}, encontrado {graficos}")
+    print(f"  gráficos embutidos: {graficos} | tabelas: {tabelas} | evidências: {evidencias}")
+    if graficos != esperado_graficos:
+        problemas.append(f"gráficos: esperado {esperado_graficos}, encontrado {graficos}")
+    if tabelas != esperado_tabelas:
+        problemas.append(f"tabelas: esperado {esperado_tabelas}, encontrado {tabelas}")
     if secoes_ativas != 1:
         problemas.append(f"secções ativas: esperado 1, encontrado {secoes_ativas}")
 

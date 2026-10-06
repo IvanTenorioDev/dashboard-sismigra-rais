@@ -79,12 +79,13 @@ PISO_PERFIL = 100
 NACIONALIDADES_NA_TABELA = 60
 
 # A navegação do slide 11: abas por pergunta, não por técnica.
+ABA_Q4 = "Q4 Representação"
 ABA_Q7 = "Q7 Multivariado"
 ABAS: tuple[str, ...] = (
     "Q1 Presença",
     "Q2 Território",
     "Q3 Registros",
-    "Q4 Representação",
+    ABA_Q4,
     "Q5 Persistência",
     "Q6 Atributos",
     ABA_Q7,

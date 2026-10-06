@@ -81,7 +81,13 @@ def evidencia(chave: str, conteudo: str, ativa: bool) -> str:
 
 
 def grafico(figura: go.Figure, identificador: str, altura: int = 430) -> str:
-    """Converte uma figura Plotly em HTML interativo, sem a barra de ferramentas."""
+    """Converte uma figura Plotly em HTML interativo, sem a barra de ferramentas.
+
+    O `id` do Plotly precisa ser **distinto** do id do bloco que o contém: o
+    `Plotly.newPlot` resolve o alvo por `getElementById`, então um id repetido faz o
+    gráfico ser desenhado no elemento externo — e o bloco de leitura é empurrado para
+    fora do cartão.
+    """
     figura.update_layout(height=altura, margin=dict(l=60, r=30, t=50, b=60))
     return figura.to_html(
         full_html=False,
@@ -117,9 +123,8 @@ def rodape_pisos() -> str:
     """Faixa de pisos, dentro do painel e sempre à vista."""
     return (
         '<div class="pisos"><b>Pisos fixos (não filtros):</b> R ≥ 500 para HHI (Q2) e '
-        "persistência (Q5); V_total ≥ 100 na janela 2023–2025 para os perfis (Q6–Q7); "
-        "a árvore exige R_total ≥ 500 e V_total ≥ 100; R ≥ 5.000 na leitura destacada "
-        "da Q4.</div>"
+        "persistência (Q5); V_total ≥ 100 na janela 2023–2025 para os perfis (Q6–Q7) e "
+        "para a leitura da Q4; a árvore exige R_total ≥ 500 e V_total ≥ 100.</div>"
     )
 
 

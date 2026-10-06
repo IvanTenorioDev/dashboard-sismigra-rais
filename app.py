@@ -43,7 +43,7 @@ def _navegacao() -> str:
         st.divider()
         st.caption(
             "Pisos de elegibilidade são fixos por decisão metodológica: "
-            "R ≥ 500 · V_total ≥ 100 · R ≥ 5.000 na leitura destacada da Q4."
+            "R ≥ 500 · V_total ≥ 100 (perfis e Q4) · R_total ≥ 500 na árvore."
         )
     return str(aba)
 

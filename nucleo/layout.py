@@ -104,8 +104,8 @@ def rodape_pisos() -> None:
     st.markdown(
         f'<div class="{CLASSES["pisos"]}">'
         "<b>Pisos fixos (não filtros):</b> R ≥ 500 para HHI (Q2) e persistência (Q5); "
-        "V_total ≥ 100 na janela 2023–2025 para os perfis (Q6–Q7); a árvore exige "
-        "R_total ≥ 500 e V_total ≥ 100; R ≥ 5.000 na leitura destacada da Q4.</div>",
+        "V_total ≥ 100 na janela 2023–2025 para os perfis (Q6–Q7) e para a leitura da "
+        "Q4; a árvore exige R_total ≥ 500 e V_total ≥ 100.</div>",
         unsafe_allow_html=True,
     )
 
