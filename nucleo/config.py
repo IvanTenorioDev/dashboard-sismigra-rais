@@ -80,6 +80,7 @@ NACIONALIDADES_NA_TABELA = 60
 
 # A navegação do slide 11: abas por pergunta, não por técnica.
 ABA_Q4 = "Q4 Representação"
+ABA_Q6 = "Q6 Atributos"
 ABA_Q7 = "Q7 Multivariado"
 ABAS: tuple[str, ...] = (
     "Q1 Presença",
@@ -87,7 +88,7 @@ ABAS: tuple[str, ...] = (
     "Q3 Registros",
     ABA_Q4,
     "Q5 Persistência",
-    "Q6 Atributos",
+    ABA_Q6,
     ABA_Q7,
     "Método & limites",
 )

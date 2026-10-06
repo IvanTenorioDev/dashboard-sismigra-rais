@@ -73,6 +73,18 @@ def faixa_log(valores: object, folga: float = 1.6) -> list[float]:
     ]
 
 
+def posicao_em_papel(valor: float, faixa: list[float]) -> float:
+    """Fração do eixo logarítmico ocupada por um valor, para ancorar anotação.
+
+    A anotação que acompanha `add_hline` não respeita um eixo logarítmico: ela fica presa
+    ao topo da área de desenho, longe da linha que deveria rotular. Ancorar em
+    coordenadas de papel, com a fração calculada aqui, põe o rótulo onde ele precisa
+    estar — e não depende do `autorange`.
+    """
+    inicio, fim = faixa
+    return (float(np.log10(valor)) - inicio) / (fim - inicio)
+
+
 def marcar_paridade(figura: object, vertical: bool, proximo_de: float = 0.0) -> None:
     """Marca onde as duas distribuições coincidem (Q = 1).
 

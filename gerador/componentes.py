@@ -75,20 +75,31 @@ def seletor_de_evidencia(opcoes: Iterable[tuple[str, str]], ativa: str) -> str:
     return f'<div class="seletor">{botoes}</div>'
 
 
-def evidencia(chave: str, conteudo: str, ativa: bool) -> str:
-    """Um bloco de evidência, visível só quando selecionado."""
-    return f'<div class="evidencia{" ativa" if ativa else ""}" id="ev-{chave}">{conteudo}</div>'
+def evidencia(chave: str, conteudo: str, ativa: bool, prefixo: str = "") -> str:
+    """Um bloco de evidência, visível só quando selecionado.
+
+    O `prefixo` é o slug da aba. Sem ele, duas abas com uma evidência de mesmo nome —
+    a Q4 e a Q6 têm ambas uma evidência `remuneracao` — produziriam ids repetidos no
+    mesmo arquivo. Quem troca de evidência é o `data-evidencia`, não o id.
+    """
+    return (
+        f'<div class="evidencia{" ativa" if ativa else ""}" '
+        f'id="{prefixo}ev-{chave}" data-evidencia="{chave}">{conteudo}</div>'
+    )
 
 
-def grafico(figura: go.Figure, identificador: str, altura: int = 430) -> str:
+def grafico(figura: go.Figure, identificador: str) -> str:
     """Converte uma figura Plotly em HTML interativo, sem a barra de ferramentas.
+
+    A altura e a margem vêm da própria figura. Cada módulo de figuras declara o
+    enquadramento que quer, e sobrescrevê-lo aqui espremeria a grade de seis painéis da
+    Q6 na altura de um gráfico único.
 
     O `id` do Plotly precisa ser **distinto** do id do bloco que o contém: o
     `Plotly.newPlot` resolve o alvo por `getElementById`, então um id repetido faz o
     gráfico ser desenhado no elemento externo — e o bloco de leitura é empurrado para
     fora do cartão.
     """
-    figura.update_layout(height=altura, margin=dict(l=60, r=30, t=50, b=60))
     return figura.to_html(
         full_html=False,
         include_plotlyjs=False,
@@ -199,7 +210,7 @@ document.querySelectorAll('.seletor').forEach(function (grupo) {
         outro.classList.toggle('ativa', outro === botao);
       });
       cartao.querySelectorAll('.evidencia').forEach(function (bloco) {
-        bloco.classList.toggle('ativa', bloco.id === 'ev-' + chave);
+        bloco.classList.toggle('ativa', bloco.dataset.evidencia === chave);
       });
       redimensionar(cartao);
     });

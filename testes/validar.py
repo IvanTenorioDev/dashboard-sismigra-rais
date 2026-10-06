@@ -363,7 +363,7 @@ def conferir_numeros() -> int:
 
 def validar_html() -> int:
     """Regenera o dashboard estático e confere a estrutura do HTML produzido."""
-    from gerador.construir import _conteudo_q4, _conteudo_q7, construir, _slug
+    from gerador.construir import CONTEUDO_POR_ABA, construir, _slug
 
     destino = construir()
     html = destino.read_text(encoding="utf-8")
@@ -393,20 +393,22 @@ def validar_html() -> int:
     # O que se espera vem das próprias declarações, não de uma constante paralela: uma
     # tabela substitui a figura da sua evidência.
     artefatos = carregar()
-    declarados = (_conteudo_q7(artefatos), _conteudo_q4(artefatos))
+    declarados = tuple(declaracao(artefatos) for declaracao in CONTEUDO_POR_ABA.values())
     esperado_graficos = sum(len(c.evidencias) - (1 if c.tabela else 0) for c in declarados)
     esperado_tabelas = sum(1 for c in declarados if c.tabela)
     esperado_evidencias = sum(len(c.evidencias) for c in declarados)
 
     # `Plotly.newPlot` resolve o alvo por `getElementById`: um id repetido faz o
-    # gráfico ser desenhado no bloco externo e a leitura sair do cartão.
+    # gráfico ser desenhado no bloco externo e a leitura sair do cartão. Ids de
+    # evidência e de figura são prefixados pelo slug da aba justamente para que duas
+    # abas possam ter uma evidência com o mesmo nome.
     identificadores_usados = re.findall(r'\sid="([^"]+)"', html)
     repetidos = sorted({valor for valor in identificadores_usados
                         if identificadores_usados.count(valor) > 1})
     if repetidos:
         problemas.append(f"ids repetidos no HTML: {repetidos[:8]}")
 
-    evidencias = html.count('id="ev-')
+    evidencias = html.count('class="evidencia')
     if evidencias != esperado_evidencias:
         problemas.append(
             f"blocos de evidência: esperado {esperado_evidencias}, encontrado {evidencias}"

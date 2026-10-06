@@ -30,9 +30,10 @@ RAIZ = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(RAIZ))
 
 from gerador import componentes  # noqa: E402
-from nucleo import graficos, graficos_q4, textos, textos_q4  # noqa: E402
+from nucleo import graficos, graficos_q4, graficos_q6, textos, textos_q4, textos_q6  # noqa: E402
 from nucleo.config import (  # noqa: E402
     ABA_Q4,
+    ABA_Q6,
     ABA_Q7,
     ABAS,
     COLUNAS_ATRIBUTOS,
@@ -104,22 +105,26 @@ def _corpo_da_evidencia(
     artefatos: DadosQ7,
     evidencia: textos.Evidencia,
     valores: dict[str, object],
+    prefixo: str,
 ) -> str:
     if conteudo.tabela and evidencia.chave == conteudo.chave_tabela:
         corpo = conteudo.tabela(artefatos)
     else:
         figura = conteudo.figuras[evidencia.chave](artefatos)
-        corpo = componentes.grafico(figura, f"fig-{evidencia.chave}")
+        corpo = componentes.grafico(figura, f"fig-{prefixo}{evidencia.chave}")
     return corpo + componentes.leitura(textos.preencher(evidencia.leitura, valores))
 
 
 def _cartao_de_evidencia(
-    conteudo: Conteudo, artefatos: DadosQ7, valores: dict[str, object]
+    conteudo: Conteudo, artefatos: DadosQ7, valores: dict[str, object], prefixo: str
 ) -> str:
     opcoes = ((item.chave, conteudo.rotulo_curto(item)) for item in conteudo.evidencias)
     blocos = (
         componentes.evidencia(
-            item.chave, _corpo_da_evidencia(conteudo, artefatos, item, valores), indice == 0
+            item.chave,
+            _corpo_da_evidencia(conteudo, artefatos, item, valores, prefixo),
+            indice == 0,
+            prefixo,
         )
         for indice, item in enumerate(conteudo.evidencias)
     )
@@ -144,9 +149,9 @@ def _cartao_de_resposta(
     )
 
 
-def _secao(conteudo: Conteudo, artefatos: DadosQ7) -> str:
+def _secao(conteudo: Conteudo, artefatos: DadosQ7, prefixo: str) -> str:
     valores = conteudo.valores(artefatos)
-    evidencias = _cartao_de_evidencia(conteudo, artefatos, valores)
+    evidencias = _cartao_de_evidencia(conteudo, artefatos, valores, prefixo)
     resposta = _cartao_de_resposta(conteudo, artefatos, valores)
     ponte = componentes.ponte(
         "Onde isto toca o problema do projeto",
@@ -342,6 +347,100 @@ def _conteudo_q4(artefatos: DadosQ7) -> Conteudo:
     )
 
 
+# ---------------------------------------------------------------------------
+# Q6 — Perfil dos vínculos formais
+# ---------------------------------------------------------------------------
+
+
+def _tabela_q6(artefatos: DadosQ7) -> str:
+    ordenada = artefatos.perfis.sort_values("salario_medio_sm", ascending=False)
+    cabecalhos = (
+        "Nacionalidade",
+        *(ROTULOS_ATRIBUTOS[coluna] for coluna in COLUNAS_ATRIBUTOS),
+        "Vínculos",
+    )
+    linhas = [
+        (
+            linha["nacionalidade"],
+            *(formatar_atributo(coluna, linha[coluna]) for coluna in COLUNAS_ATRIBUTOS),
+            formatar_inteiro(linha["V_total"]),
+        )
+        for _, linha in ordenada.iterrows()
+    ]
+    return componentes.tabela(cabecalhos, linhas)
+
+
+def _indicadores_q6(artefatos: DadosQ7) -> list[tuple[str, str]]:
+    valores = artefatos.valores_q6_para_texto()
+    total = valores["n_atributos"]
+    return [
+        ("Atributos observados", f"{total} de {total}"),
+        ("Nacionalidades com perfil completo", str(valores["n_elegiveis"])),
+        (
+            "Associação mais forte",
+            f"{valores['associacao_salario_superior']} (remuneração × escolaridade)",
+        ),
+        ("Atributo mais isolado", f"concentração setorial · {valores['isolamento_hhi']}"),
+    ]
+
+
+def _conteudo_q6(artefatos: DadosQ7) -> Conteudo:
+    inicio, fim = artefatos.configuracao["janela"]
+    total_de_atributos = len(COLUNAS_ATRIBUTOS)
+    return Conteudo(
+        cartoes=(
+            (
+                "Cobertura",
+                (
+                    "RAIS-CTPS (estoque em 31/12) — atributo do vínculo, não da pessoa",
+                    f"Anos: {inicio}–{fim} — janela fixa, sem leitura de trajetória",
+                    f"Variáveis: {total_de_atributos} atributos de perfil",
+                ),
+            ),
+            (
+                "Filtros",
+                (
+                    f"Ano: fixo em {inicio}–{fim}",
+                    f"Nacionalidade: as {artefatos.n_elegiveis} com os seis atributos observados",
+                    f"Tabela: as {artefatos.n_elegiveis} elegíveis, sem corte",
+                ),
+            ),
+            (
+                "Nota metodológica",
+                (
+                    "Unidade: nacionalidade — nunca indivíduo",
+                    f"Cobertura: {total_de_atributos} de {total_de_atributos} atributos "
+                    f"para as {artefatos.n_elegiveis}",
+                    "Associação descritiva — não mede efeito de qualificação",
+                ),
+            ),
+        ),
+        evidencias=textos_q6.EVIDENCIAS,
+        figuras={
+            "perfil": graficos_q6.perfil_dos_atributos,
+            "acoplamento": graficos_q6.associacao_entre_atributos,
+            "remuneracao": graficos_q6.remuneracao_versus_qualificacao,
+        },
+        valores=lambda dados: dados.valores_q6_para_texto(),
+        rotulo_curto=textos_q6.rotulo_curto,
+        resposta=textos_q6.RESPOSTA_SINTETICA,
+        indicadores=_indicadores_q6,
+        limites=textos_q6.LIMITES,
+        ponte=textos_q6.PONTE,
+        tabela=_tabela_q6,
+        chave_tabela="nacionalidades",
+    )
+
+
+# As abas que já declaram conteúdo. A validação deriva daqui o que esperar do HTML, em
+# vez de manter uma contagem paralela que envelhece em silêncio.
+CONTEUDO_POR_ABA: dict[str, Callable[[DadosQ7], Conteudo]] = {
+    ABA_Q7: _conteudo_q7,
+    ABA_Q4: _conteudo_q4,
+    ABA_Q6: _conteudo_q6,
+}
+
+
 def _secao_pendente(aba: str) -> str:
     cartoes = componentes.linha_de_cartoes(
         tuple(
@@ -382,15 +481,11 @@ def _marcador(conteudo: str, slug: str, ativa: bool) -> str:
 def construir(destino: Path = SAIDA / "index.html") -> Path:
     """Gera o dashboard completo em um único arquivo."""
     artefatos = carregar()
-    implementadas: dict[str, Callable[[DadosQ7], Conteudo]] = {
-        ABA_Q7: _conteudo_q7,
-        ABA_Q4: _conteudo_q4,
-    }
     identificadas = [(_slug(aba), aba) for aba in ABAS]
     secoes = [
         _marcador(
-            _secao(implementadas[nome](artefatos), artefatos)
-            if nome in implementadas
+            _secao(CONTEUDO_POR_ABA[nome](artefatos), artefatos, f"{slug}-")
+            if nome in CONTEUDO_POR_ABA
             else _secao_pendente(nome),
             slug,
             indice == 0,

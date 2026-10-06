@@ -18,6 +18,7 @@ from nucleo.config import (
     ARQUIVOS_Q7,
     COLUNAS_ATRIBUTOS,
     NACIONALIDADES_NA_TABELA,
+    ROTULOS_ATRIBUTOS,
     pasta_dados,
 )
 from nucleo.formatos import formatar_decimal, formatar_inteiro, formatar_percentual
@@ -252,6 +253,76 @@ class DadosQ7:
             "participacao_faixa_q_alto": formatar_percentual(
                 faixas.loc[faixas["faixa"].str.startswith("Q > 1,5"), "participacao_vinculos"].iloc[0]
             ),
+        }
+    def associacao_de_atributos(self) -> pd.DataFrame:
+        """Matriz de associação de postos entre os seis atributos de perfil.
+
+        Postos e não Pearson pela mesma razão da Q4: `salario_medio_sm` tem cauda
+        pesada (mediana de 1,74 SM e máximo acima de 36 SM), e uma única observação
+        dessas dominaria o coeficiente linear.
+        """
+        return self.perfis[list(COLUNAS_ATRIBUTOS)].rank().corr()
+
+    def resumo_dos_atributos(self) -> pd.DataFrame:
+        """Distribuição de cada atributo entre as nacionalidades elegíveis."""
+        linhas = []
+        for coluna in COLUNAS_ATRIBUTOS:
+            serie = self.perfis[coluna]
+            linhas.append({
+                "atributo": coluna,
+                "rotulo": ROTULOS_ATRIBUTOS[coluna],
+                "minimo": serie.min(),
+                "primeiro_quartil": serie.quantile(0.25),
+                "mediana": serie.median(),
+                "terceiro_quartil": serie.quantile(0.75),
+                "maximo": serie.max(),
+            })
+        return pd.DataFrame(linhas)
+
+    def valores_q6_para_texto(self) -> dict[str, object]:
+        """Números da Q6: dispersão e associação dos seis atributos de perfil."""
+        resumo = self.resumo_dos_atributos().set_index("atributo")
+        associacao = self.associacao_de_atributos()
+        salario = resumo.loc["salario_medio_sm"]
+        mediana_salario = float(salario["mediana"])
+        razao_salario_maximo = float(salario["maximo"]) / mediana_salario
+        maior_salario = self.perfis.loc[self.perfis["salario_medio_sm"].idxmax()]
+        maior_parcial = self.perfis.loc[self.perfis["pct_tempo_parcial"].idxmax()]
+        maior_hhi = self.perfis.loc[self.perfis["hhi_setorial"].idxmax()]
+        isolamento_hhi = max(
+            abs(float(associacao.loc["hhi_setorial", outra]))
+            for outra in COLUNAS_ATRIBUTOS
+            if outra != "hhi_setorial"
+        )
+        return {
+            "n_elegiveis": self.n_elegiveis,
+            "n_atributos": len(COLUNAS_ATRIBUTOS),
+            "salario_mediano": formatar_decimal(mediana_salario, 3),
+            "salario_minimo": formatar_decimal(float(salario["minimo"]), 3),
+            "salario_maximo": formatar_decimal(float(salario["maximo"]), 3),
+            "razao_salario_maximo": formatar_decimal(razao_salario_maximo, 1),
+            "nacionalidade_salario_maximo": maior_salario["nacionalidade"],
+            "superior_mediano": formatar_percentual(float(resumo.loc["pct_superior", "mediana"])),
+            "superior_minimo": formatar_percentual(float(resumo.loc["pct_superior", "minimo"])),
+            "superior_maximo": formatar_percentual(float(resumo.loc["pct_superior", "maximo"])),
+            "mulheres_mediano": formatar_percentual(float(resumo.loc["pct_feminino", "mediana"])),
+            "faixa_25_39_mediano": formatar_percentual(
+                float(resumo.loc["pct_faixa_25_39", "mediana"])
+            ),
+            "parcial_mediano": formatar_percentual(
+                float(resumo.loc["pct_tempo_parcial", "mediana"])
+            ),
+            "parcial_maximo": formatar_percentual(
+                float(resumo.loc["pct_tempo_parcial", "maximo"])
+            ),
+            "nacionalidade_parcial_maximo": maior_parcial["nacionalidade"],
+            "hhi_mediano": formatar_decimal(float(resumo.loc["hhi_setorial", "mediana"]), 3),
+            "hhi_maximo": formatar_decimal(float(resumo.loc["hhi_setorial", "maximo"]), 3),
+            "nacionalidade_hhi_maximo": maior_hhi["nacionalidade"],
+            "associacao_salario_superior": formatar_decimal(
+                float(associacao.loc["salario_medio_sm", "pct_superior"]), 2
+            ),
+            "isolamento_hhi": formatar_decimal(isolamento_hhi, 2),
         }
 
 
