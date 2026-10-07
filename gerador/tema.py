@@ -9,6 +9,8 @@ Aqui não há luta contra framework: o CSS descreve exatamente o que se quer ver
 
 from __future__ import annotations
 
+from nucleo.config import CSS_TABELA
+
 AZUL = "#1F3A5F"
 LARANJA = "#D97A2B"
 VERDE = "#54A24B"
@@ -213,17 +215,7 @@ body {{
   margin-bottom: 20px;
 }}
 
-table.tabela {{ border-collapse: collapse; width: 100%; font-size: 13px; }}
-table.tabela th {{
-  text-align: left;
-  color: {CINZA};
-  font-size: 11px;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  border-bottom: 1px solid {BORDA};
-  padding: 8px 10px;
-}}
-table.tabela td {{ padding: 7px 10px; border-bottom: 1px solid #F0F2F5; }}
+{CSS_TABELA}
 
 .pisos {{
   flex: 0 0 auto;

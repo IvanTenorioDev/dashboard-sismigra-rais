@@ -15,7 +15,7 @@ from collections.abc import Callable
 import streamlit as st
 
 from nucleo import graficos, layout, textos
-from nucleo.config import COLUNAS_ATRIBUTOS, LARANJA, ROTULOS_ATRIBUTOS
+from nucleo.config import COLUNAS_ATRIBUTOS, ROTULOS_ATRIBUTOS
 from nucleo.dados import Artefatos
 from nucleo.formatos import formatar_atributo, formatar_decimal, formatar_inteiro
 
@@ -129,15 +129,6 @@ def _regras_das_arvores(artefatos: Artefatos) -> None:
             )
 
 
-def _grafico(figura: object) -> None:
-    """Exibe o gráfico sem a barra de ferramentas, tolerando as duas APIs do Streamlit."""
-    sem_barra = {"displayModeBar": False, "displaylogo": False}
-    try:
-        st.plotly_chart(figura, width="stretch", config=sem_barra)
-    except TypeError:
-        st.plotly_chart(figura, use_container_width=True, config=sem_barra)
-
-
 def _renderizar_evidencia(
     artefatos: Artefatos, evidencia: textos.Evidencia, valores: dict[str, object]
 ) -> None:
@@ -145,24 +136,10 @@ def _renderizar_evidencia(
     if evidencia.chave == "quem":
         _tabela_das_nacionalidades(artefatos)
     else:
-        _grafico(FIGURAS[evidencia.chave](artefatos))
+        layout.grafico(FIGURAS[evidencia.chave](artefatos))
     st.caption(textos.preencher(evidencia.leitura, valores))
     if evidencia.chave == "arvores":
         _regras_das_arvores(artefatos)
-
-
-def _ponte_com_o_problema(valores: dict[str, object]) -> None:
-    st.markdown(
-        f"""
-        <div style="border-left:4px solid {LARANJA}; background:#FDF7F1; padding:0.8rem 1rem;
-                    border-radius:0.3rem; margin-top:0.4rem;">
-          <div style="font-size:0.72rem; letter-spacing:0.04em; text-transform:uppercase;
-                      color:#8A5A1F; margin-bottom:0.3rem;">Onde isto toca o problema do projeto</div>
-          <div style="font-size:0.95rem; line-height:1.5;">{textos.preencher(textos.RESPOSTA_ANCORADA_NO_PROBLEMA, valores)}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
 
 
 def renderizar(artefatos: Artefatos) -> None:
@@ -187,5 +164,8 @@ def renderizar(artefatos: Artefatos) -> None:
             ((rotulo, textos.preencher(texto, valores)) for rotulo, texto in limites),
         )
 
-    _ponte_com_o_problema(valores)
-    layout.rodape_pisos()
+    layout.ponte(
+        "Onde isto toca o problema do projeto",
+        textos.preencher(textos.RESPOSTA_ANCORADA_NO_PROBLEMA, valores),
+    )
+    layout.rodape_pisos(*artefatos.janela_dos_perfis)

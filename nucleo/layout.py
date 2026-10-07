@@ -12,7 +12,15 @@ from collections.abc import Iterable
 
 import streamlit as st
 
-from nucleo.config import CINZA
+from nucleo.config import (
+    CINZA,
+    CSS_TABELA,
+    FUNDO_PONTE,
+    LARANJA,
+    PISO_REGISTROS,
+    PISO_VINCULOS,
+    ROTULO_PONTE,
+)
 from nucleo.estilo import CLASSES
 
 NEGRITO = re.compile(r"\*\*(.+?)\*\*")
@@ -56,14 +64,61 @@ def cartao(titulo: str, linhas: Iterable[str]) -> None:
         st.markdown(f'<div class="dash-rotulo">{titulo}</div>{corpo}', unsafe_allow_html=True)
 
 
+def cartoes(pares: Iterable[tuple[str, Iterable[str]]]) -> None:
+    """Uma fileira de cartões informativos, quantos a aba declarar."""
+    itens = list(pares)
+    for coluna, (titulo, linhas) in zip(st.columns(len(itens)), itens):
+        with coluna:
+            cartao(titulo, linhas)
+
+
 def tres_cartoes(
     cobertura: Iterable[str], filtros: Iterable[str], metodo: Iterable[str]
 ) -> None:
     """As três caixas do topo, na ordem do desenho."""
-    caixas = (("Cobertura", cobertura), ("Filtros", filtros), ("Nota metodológica", metodo))
-    for coluna, (titulo, linhas) in zip(st.columns(3), caixas):
-        with coluna:
-            cartao(titulo, linhas)
+    cartoes(
+        (("Cobertura", cobertura), ("Filtros", filtros), ("Nota metodológica", metodo))
+    )
+
+
+def leitura(texto: str) -> None:
+    """Como ler a evidência exibida."""
+    st.caption(texto)
+
+
+def ponte(rotulo: str, texto: str) -> None:
+    """Bloco que liga o achado ao problema do projeto, com a barra lateral."""
+    st.markdown(
+        f'<div style="border-left:4px solid {LARANJA}; background:{FUNDO_PONTE}; '
+        f'padding:0.8rem 1rem; border-radius:0.3rem; margin-top:0.4rem;">'
+        f'<div style="font-size:0.72rem; letter-spacing:0.04em; text-transform:uppercase; '
+        f'color:{ROTULO_PONTE}; margin-bottom:0.3rem;">{rotulo}</div>'
+        f'<div style="font-size:0.95rem; line-height:1.5;">{texto}</div></div>',
+        unsafe_allow_html=True,
+    )
+
+
+def grafico(figura: object) -> None:
+    """Exibe o gráfico sem a barra de ferramentas, tolerando as duas APIs do Streamlit."""
+    sem_barra = {"displayModeBar": False, "displaylogo": False}
+    try:
+        st.plotly_chart(figura, width="stretch", config=sem_barra)
+    except TypeError:
+        st.plotly_chart(figura, use_container_width=True, config=sem_barra)
+
+
+def blocos(itens: Iterable[tuple[str, str, str]]) -> None:
+    """Blocos de largura total: título, nota e a tabela já renderizada.
+
+    A tabela chega como HTML pronto, do mesmo módulo que o painel estático usa: as duas
+    telas mostram a mesma tabela, e não duas parecidas.
+    """
+    for titulo, nota, tabela_html in itens:
+        with st.container(border=True):
+            st.markdown(f"#### {titulo}")
+            if nota:
+                st.markdown(nota)
+            st.markdown(tabela_html, unsafe_allow_html=True)
 
 
 def definicoes(pares: Iterable[tuple[str, str]]) -> None:
@@ -99,13 +154,18 @@ def painel_resposta(
             st.markdown(f"- **{rotulo}**: {texto}")
 
 
-def rodape_pisos() -> None:
-    """Rodapé do desenho: os pisos são decisões do projeto, não filtros do usuário."""
+def rodape_pisos(janela_inicio: int, janela_fim: int) -> None:
+    """Rodapé do desenho: os pisos são decisões do projeto, não filtros do usuário.
+
+    Os valores vêm das constantes e a janela da execução — este rodapé é a versão curta da
+    tabela de pisos da aba Método, e as duas precisam contar a mesma história.
+    """
     st.markdown(
         f'<div class="{CLASSES["pisos"]}">'
-        "<b>Pisos fixos (não filtros):</b> R ≥ 500 para HHI (Q2) e persistência (Q5); "
-        "V_total ≥ 100 na janela 2023–2025 para os perfis (Q6–Q7) e para a leitura da "
-        "Q4; a árvore exige R_total ≥ 500 e V_total ≥ 100.</div>",
+        f"<b>Pisos fixos (não filtros):</b> R ≥ {PISO_REGISTROS} para HHI (Q2) e "
+        f"persistência (Q5); V_total ≥ {PISO_VINCULOS} na janela {janela_inicio}–{janela_fim} "
+        f"para os perfis (Q6–Q7) e para a leitura da Q4; a árvore exige "
+        f"R_total ≥ {PISO_REGISTROS} e V_total ≥ {PISO_VINCULOS}.</div>",
         unsafe_allow_html=True,
     )
 

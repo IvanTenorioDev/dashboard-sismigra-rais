@@ -85,6 +85,26 @@ CORES_REGIAO: dict[int, str] = {1: "#4C78A8", 2: "#F58518", 3: "#54A24B", 4: "#B
 AZUL = "#1F3A5F"
 LARANJA = "#D97A2B"
 CINZA = "#6B7785"
+BORDA = "#E3E7EB"
+FUNDO_PONTE = "#FDF7F1"
+ROTULO_PONTE = "#8A5A1F"
+
+# Estilo da tabela de conteúdo, compartilhado pelas duas telas. Fica aqui, e não num dos
+# renderizadores, porque os dois montam a mesma tabela: o painel estático em
+# `gerador/componentes.py` e a aplicação, que exibe o mesmo HTML.
+CSS_TABELA = f"""
+table.tabela {{ border-collapse: collapse; width: 100%; font-size: 13px; }}
+table.tabela th {{
+  text-align: left;
+  color: {CINZA};
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border-bottom: 1px solid {BORDA};
+  padding: 8px 10px;
+}}
+table.tabela td {{ padding: 7px 10px; border-bottom: 1px solid #F0F2F5; }}
+"""
 
 PISO_HHI = 500
 PISO_PERSISTENCIA = 500

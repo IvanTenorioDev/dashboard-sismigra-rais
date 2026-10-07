@@ -9,7 +9,7 @@ from __future__ import annotations
 import streamlit as st
 
 from nucleo import estilo, layout, textos
-from nucleo.config import ABA_Q7, ABAS
+from nucleo.config import ABA_Q7, ABAS, PISO_REGISTROS, PISO_VINCULOS
 from nucleo.dados import (
     INSTRUCAO_GERACAO,
     ArtefatosAusentes,
@@ -17,7 +17,7 @@ from nucleo.dados import (
     artefatos_faltantes,
     carregar,
 )
-from paginas import em_construcao, q7_multivariado
+from paginas import aba_generica, q7_multivariado
 
 TITULO = "Dashboard analítico • SISMIGRA × RAIS-CTPS"
 SUBTITULO = "Projeto Integrador I · imigração registrada e vínculos formais · 2022–2025"
@@ -43,7 +43,8 @@ def _navegacao() -> str:
         st.divider()
         st.caption(
             "Pisos de elegibilidade são fixos por decisão metodológica: "
-            "R ≥ 500 · V_total ≥ 100 (perfis e Q4) · R_total ≥ 500 na árvore."
+            f"R ≥ {PISO_REGISTROS} · V_total ≥ {PISO_VINCULOS} (perfis e Q4) · "
+            f"R_total ≥ {PISO_REGISTROS} na árvore."
         )
     return str(aba)
 
@@ -69,15 +70,11 @@ def main() -> None:
     aba = _navegacao()
     layout.cabecalho(TITULO, textos.PERGUNTAS.get(aba, SUBTITULO))
 
-    if aba != ABA_Q7:
-        em_construcao.renderizar(aba)
-        return
-
     try:
         artefatos = carregar()
     except ArtefatosAusentes:
         layout.aviso_ausencia(
-            "Os dados da Q7 ainda não foram gerados", artefatos_faltantes(), INSTRUCAO_GERACAO
+            "Os dados ainda não foram gerados", artefatos_faltantes(), INSTRUCAO_GERACAO
         )
         return
     except ValueError as erro:
@@ -85,7 +82,10 @@ def main() -> None:
         return
 
     _avisar_se_sintetico(artefatos)
-    q7_multivariado.renderizar(artefatos)
+    if aba == ABA_Q7:
+        q7_multivariado.renderizar(artefatos)
+        return
+    aba_generica.renderizar(aba, artefatos)
 
 
 main()

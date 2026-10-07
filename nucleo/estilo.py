@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import streamlit as st
 
-from nucleo.config import AZUL, CINZA, LARANJA
+from nucleo.config import AZUL, CINZA, CSS_TABELA, LARANJA
 
 CLASSES = {
     "cabecalho": "dash-cabecalho",
@@ -115,6 +115,7 @@ div[data-testid="stVerticalBlockBorderWrapper"] {{
     margin-top: 0.8rem;
 }}
 .{CLASSES["pisos"]} b {{ color: {LARANJA}; }}
+{CSS_TABELA}
 </style>
 """
 

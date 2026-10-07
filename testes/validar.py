@@ -427,9 +427,11 @@ def gerar_fixture(destino: Path) -> Path:
         "ari_kmeans_ward": 0.632,
         "universo_com_Q_comparavel": 184,
         "com_os_6_atributos": 183,
+        "n_nacionalidades_na_janela": int(len(perfis) + 8),
+        "categorias_nao_nacionais_excluidas": 6,
         "elegiveis": int(len(perfis)),
         "vinculos_das_elegiveis": int(perfis["V_total"].sum()),
-        "cobertura_estoque_sismigra": list(ANOS_DO_ESTOQUE),
+        "cobertura_estoque_sismigra": [ANOS_DO_ESTOQUE[0], ANOS_DO_ESTOQUE[-1]],
         "anos_com_tipologia_de_amparo": [ano for ano in ANOS_DO_FLUXO if ano >= 2021],
         "fixture": True,
     }
@@ -485,6 +487,20 @@ def _percorrer_evidencias(aplicacao: object) -> tuple[dict[str, str], list[str]]
     return falhas, diagnostico
 
 
+def _conteudo_da_aba(aplicacao: object) -> tuple[int, int]:
+    """Gráficos e tabelas efetivamente renderizados numa aba do app.
+
+    A tabela declarada chega como HTML dentro de um bloco de markdown — é assim que as duas
+    telas mostram a mesma tabela — então ela é contada pela marcação, e não por tipo de
+    elemento. Sem esta contagem, uma aba que renderizasse vazio passaria como conforme.
+    """
+    tabelas = sum(
+        bloco.value.count('<table class="tabela"')
+        for bloco in aplicacao.markdown  # type: ignore[attr-defined]
+    )
+    return _contar_elementos(aplicacao, "plotly_chart"), tabelas
+
+
 def validar_aplicacao(pasta: Path) -> tuple[dict[str, str], list[str]]:
     """Sobe o app em memória e percorre todas as abas e todas as evidências da Q7."""
     os.environ["DASHBOARD_DADOS"] = str(pasta)
@@ -501,9 +517,16 @@ def validar_aplicacao(pasta: Path) -> tuple[dict[str, str], list[str]]:
         aplicacao.sidebar.radio[0].set_value(aba).run()
         if aplicacao.exception:
             falhas[aba] = aplicacao.exception[0].message
-        elif aba == ABA_Q7:
-            falhas_evidencias, diagnostico = _percorrer_evidencias(aplicacao)
+            continue
+        if aba == ABA_Q7:
+            falhas_evidencias, linhas_da_q7 = _percorrer_evidencias(aplicacao)
             falhas.update({f"{aba} · {chave}": erro for chave, erro in falhas_evidencias.items()})
+            diagnostico.extend(f"{aba} · {linha}" for linha in linhas_da_q7)
+            continue
+        graficos, tabelas = _conteudo_da_aba(aplicacao)
+        diagnostico.append(f"{aba}: gráficos={graficos} · tabelas={tabelas}")
+        if graficos + tabelas == 0:
+            falhas[aba] = "a aba renderizou sem gráfico e sem tabela"
     return falhas, diagnostico
 
 
@@ -711,7 +734,7 @@ def validar_aplicacao_real() -> int:
     for aba in ABAS:
         erro = falhas.get(aba)
         print(f"  {'FALHA' if erro else 'ok   '} {aba}{f' — {erro}' if erro else ''}")
-    print("\nevidências da Q7:")
+    print("\nconteúdo renderizado por aba:")
     for linha in diagnostico:
         print(f"  {linha}")
 
