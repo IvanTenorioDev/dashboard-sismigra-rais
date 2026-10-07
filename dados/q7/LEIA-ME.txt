@@ -32,3 +32,16 @@ CUIDADO COM O GRÃO
   registros_no_ano = FLUXO: registros feitos no ano, pela data de registro
   registros_ativos = ESTOQUE: fotografia de dezembro
   O erro mais fácil de cometer com esta base é somar uma coluna cujo grão é outro.
+
+AUSÊNCIA NÃO É ZERO
+  O estoque do SISMIGRA só existe de 2022 a 2025; antes disso as
+  colunas de registros ficam VAZIAS, não zeradas. O mesmo vale para o amparo, que só
+  existe de 2021 em diante. Célula vazia significa "não medido"; zero significaria
+  "medido e nenhum", que é outra coisa.
+
+TERRITÓRIO SEM UF
+  A coluna UF do SISMIGRA traz dois valores que não são unidades federativas: 'PF'
+  (pessoa física) e '--' (não informado). Foram 19,811 registros
+  (0.282% do total) excluídos da Q2 — sem isso, uma nacionalidade
+  com tudo em 'PF' apareceria com concentração máxima sem estar concentrada em lugar
+  nenhum. As somas por UF não fecham com o total, e é por isso que este aviso existe.

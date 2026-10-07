@@ -26,5 +26,23 @@
   "vinculos_das_elegiveis": 1003933,
   "n_nacionalidades_na_janela": 229,
   "categorias_nao_nacionais_excluidas": 39,
-  "versao_notebook": "REV1.1-2026-10-06"
+  "versao_notebook": "REV1.1-2026-10-06",
+  "cobertura_estoque_sismigra": [
+    2022,
+    2025
+  ],
+  "anos_com_tipologia_de_amparo": [
+    2021,
+    2022,
+    2023,
+    2024,
+    2025,
+    2026
+  ],
+  "registros_sem_uf_valida": 19811,
+  "participacao_sem_uf": 0.002825,
+  "rotulos_sem_uf": [
+    "--",
+    "PF"
+  ]
 }
