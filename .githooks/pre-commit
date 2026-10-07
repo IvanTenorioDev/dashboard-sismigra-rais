@@ -1,0 +1,126 @@
+#!/usr/bin/env bash
+#
+# Verificação antes do commit: o `docs/index.html` corresponde ao código?
+#
+# O GitHub Pages serve arquivos estáticos do repositório — ele não roda Python. Então o HTML
+# publicado só muda quando alguém o regenera localmente e commita. Esquecer esse passo é uma
+# falha SILENCIOSA: o site continua no ar, mostrando números que não são mais os do código.
+# Ninguém percebe até alguém conferir.
+#
+# Este hook existe para transformar esse esquecimento em um erro visível, no momento em que
+# ele acontece — antes do commit, não depois da banca abrir o site.
+#
+# O que ele faz:
+#   1. se o commit não toca em nada que alimente o painel, deixa passar (sem demora)
+#   2. se toca, regenera o HTML e compara com o que está prestes a ser commitado
+#   3. se divergir, BLOQUEIA e explica como resolver
+#
+# E o que ele NÃO faz: bloquear toda alteração em `nucleo/`. A comparação é entre o HTML
+# gerado antes e depois, não entre as listas de arquivos alterados. Uma mudança que não
+# chega ao painel — um comentário, uma função que o dashboard não usa — passa direto, e é
+# assim que deve ser. Um hook que bloqueia sem motivo vira `--no-verify` por hábito, e aí
+# ele deixa de proteger.
+#
+# Como ignorar, quando for intencional:
+#   git commit --no-verify
+
+set -uo pipefail
+
+RAIZ="$(git rev-parse --show-toplevel)"
+PYTHON="$RAIZ/.venv/bin/python"
+
+# As fontes do painel. Se uma delas mudar, o HTML tem de ser regenerado. A lista é explícita
+# (e não "tudo que é .py") porque um hook que dispara à toa acaba burlado por hábito.
+FONTES=(
+    "^nucleo/"
+    "^gerador/"
+    "^dados/q7/"
+)
+
+saida=0
+
+regenerar() {
+    if [ ! -x "$PYTHON" ]; then
+        echo "hook de push: não encontrei $PYTHON" >&2
+        echo "  ative o ambiente: crie dashboard/.venv e instale requirements.txt" >&2
+        return 1
+    fi
+    ( cd "$RAIZ" && "$PYTHON" gerador/construir.py )
+}
+
+# --- 1. O commit toca em algo que alimenta o painel? --------------------------------
+
+toca_fontes=0
+for padrao in "${FONTES[@]}"; do
+    if git diff --cached --name-only | grep -qE "$padrao"; then
+        toca_fontes=1
+        break
+    fi
+done
+
+if [ "$toca_fontes" -eq 0 ]; then
+    exit 0
+fi
+
+# --- 2. Regenera e compara ----------------------------------------------------------
+
+# A comparação é entre o HTML que o código produz AGORA e o HTML que o commit levaria —
+# isto é, o que está no índice (`:docs/index.html`) ou, se o arquivo não estiver no índice,
+# o que está no último commit (`HEAD:docs/index.html`).
+#
+# Comparar o *diff* do índice não serve: quando o arquivo não está no índice, esse diff é
+# vazio, e dois vazios são iguais. A primeira versão deste hook tinha exatamente esse defeito
+# e deixava passar todo commit que não fizesse `git add` no HTML — que é o caso normal.
+conteudo_no_commit() {
+    if git ls-files --error-unmatch -- docs/index.html >/dev/null 2>&1 \
+        || git diff --cached --name-only | grep -q "^docs/index.html$"; then
+        git show :docs/index.html 2>/dev/null
+    else
+        git show HEAD:docs/index.html 2>/dev/null
+    fi
+}
+
+antes="$(conteudo_no_commit | sha256sum | cut -d' ' -f1)"
+
+if ! regenerar >/dev/null 2>&1; then
+    echo
+    echo "COMMIT BLOQUEADO — a regeneração do painel falhou."
+    echo
+    echo "  Rode para ver o erro:"
+    echo "      .venv/bin/python gerador/construir.py"
+    echo
+    echo "  Para commitar mesmo assim (código que ainda não compila, por exemplo):"
+    echo "      git commit --no-verify"
+    echo
+    exit 1
+fi
+
+depois="$(sha256sum < docs/index.html | cut -d' ' -f1)"
+
+if [ "$antes" = "$depois" ]; then
+    # A regeneração foi idempotente: o HTML que o commit levaria já corresponde ao código.
+    # Nada a fazer, e o commit segue sem alterar o índice.
+    exit 0
+fi
+
+# --- 3. Divergiu: bloqueia, avisa e deixa a resolução em um comando ---------------
+
+git add docs/index.html
+
+echo
+echo "COMMIT BLOQUEADO — o painel publicado estava desatualizado."
+echo
+echo "  Você alterou algo que alimenta o painel, mas o docs/index.html commitado"
+echo "  correspondia à versão anterior. Acabei de regenerá-lo e de adicioná-lo ao"
+echo "  commit: o que você ia publicar era o painel antigo."
+echo
+echo "  Confira a diferença:"
+echo "      git diff --cached docs/index.html"
+echo
+echo "  Se estiver certo, repita o commit:"
+echo "      git commit -m \"<mesma mensagem>\""
+echo
+echo "  O site atualiza de 1 a 3 minutos depois do push."
+echo
+
+exit 1
