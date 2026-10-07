@@ -9,26 +9,18 @@ Aqui não há luta contra framework: o CSS descreve exatamente o que se quer ver
 
 from __future__ import annotations
 
-from nucleo.config import CSS_TABELA
+from nucleo.config import AZUL, BORDA, CINZA, CSS_TABELA, LARANJA
 
-AZUL = "#1F3A5F"
-LARANJA = "#D97A2B"
-VERDE = "#54A24B"
-AZUL_GRAFICO = "#4C78A8"
-LARANJA_GRAFICO = "#F58518"
-
+# Cores que só o painel estático usa. As que as duas telas compartilham — a paleta geral, a
+# das regiões e a borda — vêm do config, para não haver dois valores para a mesma cor.
 FUNDO_PAGINA = "#E9ECF0"
 FUNDO_CONTEUDO = "#F7F8FA"
-BORDA = "#E3E7EB"
 TEXTO = "#1A1A1A"
-CINZA = "#6B7785"
 CINZA_CLARO = "#8B96A3"
 
 SOMBRA_CARTAO = "0 1px 5px rgba(20, 32, 48, 0.10)"
 SOMBRA_NAVEGACAO = "0 1px 3px rgba(20, 32, 48, 0.10)"
 SOMBRA_PAINEL = "0 2px 14px rgba(20, 32, 48, 0.14)"
-
-CORES_REGIAO = {1: AZUL_GRAFICO, 2: LARANJA_GRAFICO, 3: VERDE, 4: "#B279A2"}
 
 CSS = f"""
 * {{ box-sizing: border-box; }}

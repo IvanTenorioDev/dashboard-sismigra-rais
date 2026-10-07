@@ -238,7 +238,8 @@ para 0,769 no k = 3 entre execuções. Por isso o painel exibe média **e** pior
 
 - **Escala de escolaridade** — os dados usam 7 níveis e o dicionário do projeto traz 11.
   A escala adotada foi inferida por três testes independentes e ainda aguarda confirmação
-  do layout oficial da Base Harmonizada. Ver `06_achados_qualidade_dados.md`.
+  do layout oficial da Base Harmonizada. Ver
+  `Relatórios do projeto/06_achados_qualidade_dados.md`.
 - **Uma nacionalidade do funil** — a primeira execução real classificou 102 nacionalidades
   porque incluía quem tem vínculos no RAIS e nenhum registro no SISMIGRA (a NAURU), para
   quem Q é indefinido. A exigência de Q comparável levou a 101 e aos grupos 57/20/24.

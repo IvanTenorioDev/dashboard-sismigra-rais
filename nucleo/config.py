@@ -81,7 +81,18 @@ ATRIBUTOS_PERCENTUAIS: tuple[str, ...] = (
     "pct_tempo_parcial",
 )
 
-CORES_REGIAO: dict[int, str] = {1: "#4C78A8", 2: "#F58518", 3: "#54A24B", 4: "#B279A2"}
+AZUL_GRAFICO = "#4C78A8"
+LARANJA_GRAFICO = "#F58518"
+VERDE_GRAFICO = "#54A24B"
+ROXO_GRAFICO = "#B279A2"
+
+# Paleta das regiões da Q7, na ordem em que os grupos são numerados.
+CORES_REGIAO: dict[int, str] = {
+    1: AZUL_GRAFICO,
+    2: LARANJA_GRAFICO,
+    3: VERDE_GRAFICO,
+    4: ROXO_GRAFICO,
+}
 AZUL = "#1F3A5F"
 LARANJA = "#D97A2B"
 CINZA = "#6B7785"
@@ -105,10 +116,6 @@ table.tabela th {{
 }}
 table.tabela td {{ padding: 7px 10px; border-bottom: 1px solid #F0F2F5; }}
 """
-
-PISO_HHI = 500
-PISO_PERSISTENCIA = 500
-PISO_PERFIL = 100
 
 # Quantas nacionalidades a tabela de rastreabilidade exibe por padrão.
 NACIONALIDADES_NA_TABELA = 60
