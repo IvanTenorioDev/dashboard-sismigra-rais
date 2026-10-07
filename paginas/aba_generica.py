@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import streamlit as st
 
-from gerador.construir import CONTEUDO_POR_ABA, Conteudo
+from nucleo.abas import CONTEUDO_POR_ABA, Conteudo
 from nucleo import layout, textos
 from nucleo.dados import Artefatos
 

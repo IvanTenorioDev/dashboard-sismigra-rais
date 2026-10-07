@@ -12,8 +12,15 @@ from collections.abc import Iterable
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
+import plotly.io as pio
 
 from nucleo.config import AZUL, CINZA, CORES_REGIAO, LARANJA
+
+# O estilo de todos os gráficos, declarado uma vez. Sem isto cada figura herda o template
+# padrão do Plotly, que traz fundo cinza-azulado — e a herança depende da ordem em que os
+# módulos são importados, então o mesmo código gerava painéis diferentes. A figura do
+# projeto é fundo branco, e é o que o desenho aprovado pede.
+pio.templates.default = "plotly_white"
 
 ALTURA = 460
 ALTURA_ALTA = 640

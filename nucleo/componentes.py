@@ -11,7 +11,7 @@ from collections.abc import Iterable, Sequence
 
 import plotly.graph_objects as go
 
-from gerador import tema
+from nucleo import tema
 from nucleo.config import PISO_REGISTROS, PISO_VINCULOS
 
 NEGRITO = re.compile(r"\*\*(.+?)\*\*")

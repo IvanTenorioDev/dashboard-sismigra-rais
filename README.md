@@ -131,14 +131,15 @@ Em qualquer das duas rotas os arquivos de `dados/q7/` **precisam estar no commit
 app.py                      aplicação Streamlit: navegação e tratamento de ausência de dados
 
 gerador/                    o painel estático — o artefato publicado
-  construir.py              as oito abas declaradas, e o renderizador do HTML
-  componentes.py            as peças de HTML
-  tema.py                   a folha de estilo do painel
+  construir.py              o renderizador do HTML
 
-nucleo/                     a camada analítica, compartilhada pelas duas telas
+nucleo/                     a camada que as duas telas compartilham
+  abas.py                   o conteúdo de cada aba, declarado uma vez
+  componentes.py            as peças de HTML do painel
+  tema.py                   a folha de estilo do painel
   config.py                 pisos, rótulos, cores, abas, cobertura dos dados, estilo da tabela
   dados.py                  leitura, validação do esquema e valores derivados
-  graficos_base.py          o que é comum às figuras: paleta, eixos, margens, marcações
+  graficos_base.py          o que é comum às figuras: paleta, template, eixos, margens
   graficos*.py              as figuras, por pergunta
   textos*.py                a narrativa, por pergunta
   layout.py                 as peças de tela da aplicação Streamlit
@@ -154,8 +155,8 @@ docs/                       o painel publicado: index.html e .nojekyll
 testes/validar.py           validação em quatro modos
 ```
 
-Uma aba nova se acrescenta declarando o conteúdo dela em `gerador/construir.py`: as duas
-telas leem a mesma declaração, e nenhuma das duas precisa de página nova.
+Uma aba nova se acrescenta declarando o conteúdo dela em `nucleo/abas.py`. As duas telas
+leem a mesma declaração, e nenhuma das duas precisa de página nova.
 
 ## 7. Decisões de desenho das abas
 

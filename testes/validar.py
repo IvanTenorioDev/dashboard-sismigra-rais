@@ -42,7 +42,7 @@ from nucleo.config import (  # noqa: E402
     TOLERANCIA_MEDIA,
 )
 from nucleo.dados import Artefatos, ArtefatosAusentes, carregar, pasta_dados  # noqa: E402
-from paginas.q7_multivariado import FIGURAS  # noqa: E402
+from nucleo.abas import CONTEUDO_POR_ABA  # noqa: E402
 
 SEMENTE_FIXTURE = 42
 TAMANHOS_REGIOES = {1: 57, 2: 20, 3: 24}
@@ -441,9 +441,14 @@ def gerar_fixture(destino: Path) -> Path:
     return destino
 
 
+def _figuras_da_q7(artefatos: Artefatos) -> dict[str, object]:
+    """As figuras declaradas para a Q7 — a mesma fonte que as duas telas leem."""
+    return CONTEUDO_POR_ABA[ABA_Q7](artefatos).figuras
+
+
 def _renderizar_tudo(artefatos: Artefatos) -> list[str]:
     problemas = []
-    for chave, construtor in FIGURAS.items():
+    for chave, construtor in _figuras_da_q7(artefatos).items():
         try:
             figura = construtor(artefatos)
         except Exception as erro:  # noqa: BLE001 — o objetivo é justamente capturar tudo
@@ -540,7 +545,7 @@ def validar_renderizacao() -> int:
         print(f"  universo: {artefatos.n_universo} | elegíveis: {artefatos.n_elegiveis}")
 
         problemas = _renderizar_tudo(artefatos)
-        for chave, construtor in FIGURAS.items():
+        for chave, construtor in _figuras_da_q7(artefatos).items():
             figura = construtor(artefatos)
             print(f"  {chave:12s} traços={len(figura.data)}")
 
@@ -634,7 +639,8 @@ def conferir_numeros() -> int:
 
 def validar_html() -> int:
     """Regenera o dashboard estático e confere a estrutura do HTML produzido."""
-    from gerador.construir import CONTEUDO_POR_ABA, construir, _slug
+    from gerador.construir import _slug, construir
+    from nucleo.abas import CONTEUDO_POR_ABA
 
     destino = construir()
     html = destino.read_text(encoding="utf-8")
