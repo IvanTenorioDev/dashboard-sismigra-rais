@@ -1,0 +1,34 @@
+DASHBOARD — CONTRATO DE DADOS
+=========================================================
+Versão do notebook que gerou este pacote: REV1.1-2026-10-06
+Janela do perfil (Q4, Q6 e Q7): 2023–2025
+Anos da RAIS nas abas novas: 2010–2025
+
+O dashboard não recalcula nada: ele apresenta o que está neste pacote. Se a versão
+acima não for a esperada, o pacote veio de outra execução — o Colab congela a cópia
+do notebook no momento do upload, e reexecutar a mesma sessão repete a versão antiga.
+
+ARQUIVOS DA Q4, Q6 E Q7
+  q7_config.json                 parâmetros, funil e contagens de conferência
+  q7_perfis.csv                  nacionalidade — 6 atributos, Q, região
+  q7_pca.csv / q7_cargas.csv / q7_variancia.csv
+  q7_diagnostico_k.csv / q7_regioes.csv / q7_arvores.csv
+
+ARQUIVOS DA Q1, Q2, Q3 E Q5
+  q1_serie_anual.csv             nacionalidade × ano — registros, vínculos, Q, atributos
+  q1_resumo_por_ano.csv          ano — totais dos dois lados e a razão
+  q2_uf_ano.csv                  UF × ano — registros e vínculos, conceitos distintos
+  q2_concentracao.csv            nacionalidade × ano — HHI e UF dominante nos dois conceitos
+  q2_uf_top_nacionalidades.csv   UF × posição — maiores nacionalidades de cada UF
+  q3_fluxo_ano.csv               ano — registros do ano, amparo e composição de sexo
+  q5_persistencia.csv            nacionalidade — anos de presença e extremos do intervalo
+
+CUIDADO COM OS DOIS CONCEITOS DE UF
+  registros_ativos = UF de RESIDÊNCIA (SISMIGRA)
+  vinculos_formais = UF do ESTABELECIMENTO empregador (RAIS-CTPS)
+  Não somar nem comparar como se fossem o mesmo território.
+
+CUIDADO COM O GRÃO
+  registros_no_ano = FLUXO: registros feitos no ano, pela data de registro
+  registros_ativos = ESTOQUE: fotografia de dezembro
+  O erro mais fácil de cometer com esta base é somar uma coluna cujo grão é outro.
