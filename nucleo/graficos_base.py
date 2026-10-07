@@ -7,14 +7,23 @@ vive aqui, para não haver duas definições do mesmo elemento.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
+
 import numpy as np
 import pandas as pd
+import plotly.graph_objects as go
 
 from nucleo.config import AZUL, CINZA, CORES_REGIAO, LARANJA
 
 ALTURA = 460
 ALTURA_ALTA = 640
 MARGEM = {"l": 70, "r": 30, "t": 60, "b": 60}
+
+# Legenda horizontal fica fora da área de desenho, abaixo dela. Com a margem padrão ela sai
+# cortada na borda inferior, e ainda por cima por cima dos rótulos do eixo. Quem põe
+# legenda embaixo usa estes dois valores juntos, para não haver duas medidas diferentes.
+MARGEM_INFERIOR_AMPLA = {**MARGEM, "b": 120}
+LEGENDA_ABAIXO = {"orientation": "h", "y": -0.16, "yanchor": "top"}
 
 # Valores de referência do índice Q, para o eixo em escala logarítmica. Marcar o eixo
 # com valores redondos legíveis é o que permite ler "10× mais" sem calcular log de cabeça.
@@ -100,5 +109,38 @@ def marcar_paridade(figura: object, vertical: bool, proximo_de: float = 0.0) -> 
         line_width=1.5,
         annotation_text="Q = 1 (paridade)",
         annotation_position="top right",
+        annotation_font_size=11,
+    )
+
+
+def eixo_de_anos(anos: Iterable[int], passo: int = 2) -> dict[str, object]:
+    """Posições e rótulos de um eixo de anos, sem casas decimais.
+
+    O eixo numérico do Plotly rotula 2015,000 quando a malha não cai em inteiros. Fixar
+    as posições evita isso e mantém a mesma malha em todas as figuras anuais.
+    """
+    presentes = sorted({int(ano) for ano in anos})
+    if not presentes:
+        return {}
+    marcados = presentes[::passo]
+    if marcados[-1] != presentes[-1]:
+        marcados.append(presentes[-1])
+    return {"tickvals": marcados, "ticktext": [str(ano) for ano in marcados]}
+
+
+def marcar_ano_incompleto(figura: go.Figure, ano: int) -> None:
+    """Sombreia o ano que a extração pegou em curso.
+
+    Sem a marca, o último ponto de uma série anual parece queda de atividade quando é
+    só um ano com menos meses — a leitura mais errada possível de um gráfico de fluxo.
+    """
+    figura.add_vrect(
+        x0=ano - 0.5,
+        x1=ano + 0.5,
+        fillcolor=LARANJA,
+        opacity=0.12,
+        line_width=0,
+        annotation_text="ano em curso",
+        annotation_position="top left",
         annotation_font_size=11,
     )

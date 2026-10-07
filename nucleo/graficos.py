@@ -12,7 +12,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 from nucleo.config import AZUL, CINZA, COLUNAS_ATRIBUTOS, LARANJA, ROTULOS_ATRIBUTOS
-from nucleo.dados import DadosQ7
+from nucleo.dados import Artefatos
 from nucleo.formatos import formatar_atributo, formatar_decimal, formatar_percentual
 from nucleo.graficos_base import (
     ALTURA,
@@ -25,7 +25,7 @@ from nucleo.graficos_base import (
 )
 
 
-def dispersao_pca(artefatos: DadosQ7) -> go.Figure:
+def dispersao_pca(artefatos: Artefatos) -> go.Figure:
     """Dispersão das nacionalidades nos dois primeiros componentes principais."""
     # V_total já vem no arquivo de coordenadas; pedir de novo do perfil colidiria na junção.
     complementares = ("Q_medio", "salario_medio_sm", "pct_superior")
@@ -57,7 +57,7 @@ def dispersao_pca(artefatos: DadosQ7) -> go.Figure:
     return figura
 
 
-def cargas_pca(artefatos: DadosQ7) -> go.Figure:
+def cargas_pca(artefatos: Artefatos) -> go.Figure:
     """Peso de cada atributo em PC1 e PC2 — a direção do gradiente."""
     cargas = artefatos.cargas.copy()
     cargas["rotulo"] = cargas["atributo"].map(ROTULOS_ATRIBUTOS).fillna(cargas["atributo"])
@@ -77,7 +77,7 @@ def cargas_pca(artefatos: DadosQ7) -> go.Figure:
     return figura
 
 
-def mapa_regioes(artefatos: DadosQ7) -> go.Figure:
+def mapa_regioes(artefatos: Artefatos) -> go.Figure:
     """Mapa de calor do perfil mediano das regiões, em desvios-padrão dentro da coluna."""
     regioes = artefatos.regioes.sort_values("regiao").reset_index(drop=True)
     colunas = list(COLUNAS_ATRIBUTOS)
@@ -103,7 +103,7 @@ def mapa_regioes(artefatos: DadosQ7) -> go.Figure:
     return figura
 
 
-def faixas_de_q(artefatos: DadosQ7) -> go.Figure:
+def faixas_de_q(artefatos: Artefatos) -> go.Figure:
     """Distribuição do índice Q dentro de cada região."""
     figura = go.Figure()
     for regiao in regioes_presentes(artefatos.perfis):
@@ -138,7 +138,7 @@ def _barras_de_erro(diagnostico: pd.DataFrame, coluna: str | None) -> dict[str, 
     return {"type": "data", "array": diagnostico[coluna], "color": CINZA}
 
 
-def diagnostico_k(artefatos: DadosQ7) -> go.Figure:
+def diagnostico_k(artefatos: Artefatos) -> go.Figure:
     """Os quatro critérios usados para escolher k, com o k escolhido destacado."""
     diagnostico = artefatos.diagnostico.sort_values("k")
     figura = make_subplots(
@@ -164,7 +164,7 @@ def diagnostico_k(artefatos: DadosQ7) -> go.Figure:
     return figura
 
 
-def estabilidade_por_k(artefatos: DadosQ7) -> go.Figure:
+def estabilidade_por_k(artefatos: Artefatos) -> go.Figure:
     """Dispersão dos ARI individuais de cada reamostragem, por k."""
     figura = go.Figure()
     for k in sorted(int(valor) for valor in artefatos.diagnostico["k"]):
@@ -186,7 +186,7 @@ def estabilidade_por_k(artefatos: DadosQ7) -> go.Figure:
     return figura
 
 
-def arvores_comparacao(artefatos: DadosQ7) -> go.Figure:
+def arvores_comparacao(artefatos: Artefatos) -> go.Figure:
     """Acurácia em validação cruzada contra o baseline ingênuo de cada árvore."""
     arvores = artefatos.arvores.copy()
     arvores["rotulo"] = arvores["descricao_alvo"]
@@ -210,7 +210,7 @@ def arvores_comparacao(artefatos: DadosQ7) -> go.Figure:
     return figura
 
 
-def composicao_regioes(artefatos: DadosQ7) -> go.Figure:
+def composicao_regioes(artefatos: Artefatos) -> go.Figure:
     """Quantas nacionalidades e quantos vínculos cada região concentra."""
     regioes = artefatos.regioes.sort_values("regiao")
     figura = make_subplots(specs=[[{"secondary_y": True}]])
@@ -245,7 +245,7 @@ def composicao_regioes(artefatos: DadosQ7) -> go.Figure:
     return figura
 
 
-def perfil_da_linha(artefatos: DadosQ7, nacionalidade: str) -> pd.DataFrame:
+def perfil_da_linha(artefatos: Artefatos, nacionalidade: str) -> pd.DataFrame:
     """Tabela de leitura de uma nacionalidade, para o bloco de consulta."""
     linha = artefatos.perfis.loc[artefatos.perfis["nacionalidade"].eq(nacionalidade)]
     if linha.empty:
@@ -257,13 +257,13 @@ def perfil_da_linha(artefatos: DadosQ7, nacionalidade: str) -> pd.DataFrame:
     })
 
 
-def texto_da_regra(artefatos: DadosQ7, arvore: str) -> str:
+def texto_da_regra(artefatos: Artefatos, arvore: str) -> str:
     """A regra em texto de uma árvore, pronta para exibição monoespaçada."""
     linha = artefatos.arvores.loc[artefatos.arvores["arvore"].eq(arvore)]
     return "" if linha.empty else str(linha.iloc[0]["regra"])
 
 
-def resumo_numerico(artefatos: DadosQ7) -> dict[str, str]:
+def resumo_numerico(artefatos: Artefatos) -> dict[str, str]:
     """Indicadores do painel de resposta, já formatados."""
     linha = artefatos.regiao_do_k()
     return {

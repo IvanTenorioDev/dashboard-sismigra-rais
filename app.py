@@ -13,7 +13,7 @@ from nucleo.config import ABA_Q7, ABAS
 from nucleo.dados import (
     INSTRUCAO_GERACAO,
     ArtefatosAusentes,
-    DadosQ7,
+    Artefatos,
     artefatos_faltantes,
     carregar,
 )
@@ -48,7 +48,7 @@ def _navegacao() -> str:
     return str(aba)
 
 
-def _avisar_se_sintetico(artefatos: DadosQ7) -> None:
+def _avisar_se_sintetico(artefatos: Artefatos) -> None:
     """Impede que artefatos de teste sejam lidos como resultado real."""
     if artefatos.configuracao.get("fixture"):
         st.error(

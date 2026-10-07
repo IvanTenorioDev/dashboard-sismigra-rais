@@ -23,7 +23,7 @@ from nucleo.config import (
     COLUNAS_ATRIBUTOS,
     ROTULOS_ATRIBUTOS,
 )
-from nucleo.dados import DadosQ7
+from nucleo.dados import Artefatos
 from nucleo.formatos import formatar_decimal, formatar_percentual
 from nucleo.graficos_base import (
     ALTURA,
@@ -63,7 +63,7 @@ def _rotulos_de_tick(valores: tuple[float, ...]) -> list[str]:
     return [f"{valor:g}".replace(".", ",") for valor in valores]
 
 
-def perfil_dos_atributos(artefatos: DadosQ7) -> go.Figure:
+def perfil_dos_atributos(artefatos: Artefatos) -> go.Figure:
     """Distribuição de cada um dos seis atributos entre as nacionalidades elegíveis.
 
     Uma grade e não um gráfico único: os atributos têm unidades e escalas diferentes
@@ -115,7 +115,7 @@ def perfil_dos_atributos(artefatos: DadosQ7) -> go.Figure:
     return figura
 
 
-def associacao_entre_atributos(artefatos: DadosQ7) -> go.Figure:
+def associacao_entre_atributos(artefatos: Artefatos) -> go.Figure:
     """Associação de postos entre os seis atributos, no triângulo inferior.
 
     O triângulo superior fica vazio porque a matriz é simétrica: repetir os mesmos
@@ -180,7 +180,7 @@ def _rotulo_do_maior_salario(perfis: pd.DataFrame) -> go.Scatter:
     )
 
 
-def remuneracao_versus_qualificacao(artefatos: DadosQ7) -> go.Figure:
+def remuneracao_versus_qualificacao(artefatos: Artefatos) -> go.Figure:
     """Remuneração contra qualificação — os dois atributos mais acoplados.
 
     As medianas dos dois atributos cruzam o plano em quatro quadrantes, e é nos

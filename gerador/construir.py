@@ -24,15 +24,35 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
+import pandas as pd
 import plotly.graph_objects as go
 
 RAIZ = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(RAIZ))
 
 from gerador import componentes  # noqa: E402
-from nucleo import graficos, graficos_q4, graficos_q6, textos, textos_q4, textos_q6  # noqa: E402
+from nucleo import (  # noqa: E402
+    graficos,
+    graficos_q1,
+    graficos_q2,
+    graficos_q3,
+    graficos_q4,
+    graficos_q5,
+    graficos_q6,
+    textos,
+    textos_q1,
+    textos_q2,
+    textos_q3,
+    textos_q4,
+    textos_q5,
+    textos_q6,
+)
 from nucleo.config import (  # noqa: E402
+    ABA_Q1,
+    ABA_Q2,
+    ABA_Q3,
     ABA_Q4,
+    ABA_Q5,
     ABA_Q6,
     ABA_Q7,
     ABAS,
@@ -40,7 +60,7 @@ from nucleo.config import (  # noqa: E402
     NACIONALIDADES_NA_TABELA,
     ROTULOS_ATRIBUTOS,
 )
-from nucleo.dados import DadosQ7, carregar, pasta_dados  # noqa: E402
+from nucleo.dados import Artefatos, carregar, pasta_dados  # noqa: E402
 from nucleo.formatos import (  # noqa: E402
     formatar_atributo,
     formatar_decimal,
@@ -68,8 +88,8 @@ LIMITES_PENDENTES = (
     "interpretação permitida",
 )
 
-ConstrutorDeFigura = Callable[[DadosQ7], go.Figure]
-ValoresDaNarrativa = Callable[[DadosQ7], dict[str, object]]
+ConstrutorDeFigura = Callable[[Artefatos], go.Figure]
+ValoresDaNarrativa = Callable[[Artefatos], dict[str, object]]
 
 
 @dataclass(frozen=True)
@@ -82,10 +102,10 @@ class Conteudo:
     valores: ValoresDaNarrativa
     rotulo_curto: Callable[[textos.Evidencia], str]
     resposta: str
-    indicadores: Callable[[DadosQ7], list[tuple[str, str]]]
+    indicadores: Callable[[Artefatos], list[tuple[str, str]]]
     limites: tuple[tuple[str, str], ...]
     ponte: str
-    tabela: Callable[[DadosQ7], str] | None = None
+    tabela: Callable[[Artefatos], str] | None = None
     chave_tabela: str = ""
 
 
@@ -102,7 +122,7 @@ def _cartoes(conteudo: Conteudo) -> str:
 
 def _corpo_da_evidencia(
     conteudo: Conteudo,
-    artefatos: DadosQ7,
+    artefatos: Artefatos,
     evidencia: textos.Evidencia,
     valores: dict[str, object],
     prefixo: str,
@@ -116,7 +136,7 @@ def _corpo_da_evidencia(
 
 
 def _cartao_de_evidencia(
-    conteudo: Conteudo, artefatos: DadosQ7, valores: dict[str, object], prefixo: str
+    conteudo: Conteudo, artefatos: Artefatos, valores: dict[str, object], prefixo: str
 ) -> str:
     opcoes = ((item.chave, conteudo.rotulo_curto(item)) for item in conteudo.evidencias)
     blocos = (
@@ -136,7 +156,7 @@ def _cartao_de_evidencia(
 
 
 def _cartao_de_resposta(
-    conteudo: Conteudo, artefatos: DadosQ7, valores: dict[str, object]
+    conteudo: Conteudo, artefatos: Artefatos, valores: dict[str, object]
 ) -> str:
     detalhado = ((rotulo, textos.preencher(texto, valores)) for rotulo, texto in conteudo.limites)
     resposta = componentes.para_html(textos.preencher(conteudo.resposta, valores))
@@ -144,12 +164,14 @@ def _cartao_de_resposta(
         '<div class="cartao cartao-alto"><div class="titulo-bloco">Resposta + limites</div>'
         f'<div class="resposta">{resposta}</div>'
         f"{componentes.indicadores(conteudo.indicadores(artefatos))}"
-        f"{componentes.lista_de_limites(rotulo for rotulo, _ in conteudo.limites)}"
+        # O rótulo também passa pelo preenchimento: ele cita ano e piso, e um placeholder
+        # não preenchido chegaria literal à tela.
+        f"{componentes.lista_de_limites(textos.preencher(rotulo, valores) for rotulo, _ in conteudo.limites)}"
         f"{componentes.detalhamento(detalhado)}</div>"
     )
 
 
-def _secao(conteudo: Conteudo, artefatos: DadosQ7, prefixo: str) -> str:
+def _secao(conteudo: Conteudo, artefatos: Artefatos, prefixo: str) -> str:
     valores = conteudo.valores(artefatos)
     evidencias = _cartao_de_evidencia(conteudo, artefatos, valores, prefixo)
     resposta = _cartao_de_resposta(conteudo, artefatos, valores)
@@ -169,7 +191,7 @@ def _secao(conteudo: Conteudo, artefatos: DadosQ7, prefixo: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _tabela_q7(artefatos: DadosQ7) -> str:
+def _tabela_q7(artefatos: Artefatos) -> str:
     ordenada = (
         artefatos.perfis.sort_values("Q_medio", ascending=False).head(NACIONALIDADES_NA_TABELA)
     )
@@ -193,7 +215,7 @@ def _tabela_q7(artefatos: DadosQ7) -> str:
     return componentes.tabela(cabecalhos, linhas)
 
 
-def _indicadores_q7(artefatos: DadosQ7) -> list[tuple[str, str]]:
+def _indicadores_q7(artefatos: Artefatos) -> list[tuple[str, str]]:
     resumo = graficos.resumo_numerico(artefatos)
     return [
         ("Regiões", resumo["Regiões"]),
@@ -203,7 +225,7 @@ def _indicadores_q7(artefatos: DadosQ7) -> list[tuple[str, str]]:
     ]
 
 
-def _conteudo_q7(artefatos: DadosQ7) -> Conteudo:
+def _conteudo_q7(artefatos: Artefatos) -> Conteudo:
     inicio, fim = artefatos.configuracao["janela"]
     return Conteudo(
         cartoes=(
@@ -264,7 +286,7 @@ def _conteudo_q7(artefatos: DadosQ7) -> Conteudo:
 # ---------------------------------------------------------------------------
 
 
-def _tabela_q4(artefatos: DadosQ7) -> str:
+def _tabela_q4(artefatos: Artefatos) -> str:
     faixas = artefatos.faixas_de_q()
     cabecalhos = (
         "Faixa de Q",
@@ -288,7 +310,7 @@ def _tabela_q4(artefatos: DadosQ7) -> str:
     return componentes.tabela(cabecalhos, linhas)
 
 
-def _indicadores_q4(artefatos: DadosQ7) -> list[tuple[str, str]]:
+def _indicadores_q4(artefatos: Artefatos) -> list[tuple[str, str]]:
     valores = artefatos.valores_q4_para_texto()
     return [
         ("Nacionalidades com Q > 1", f"{valores['n_acima_1']} de {valores['n_elegiveis']}"),
@@ -301,7 +323,7 @@ def _indicadores_q4(artefatos: DadosQ7) -> list[tuple[str, str]]:
     ]
 
 
-def _conteudo_q4(artefatos: DadosQ7) -> Conteudo:
+def _conteudo_q4(artefatos: Artefatos) -> Conteudo:
     inicio, fim = artefatos.configuracao["janela"]
     return Conteudo(
         cartoes=(
@@ -352,7 +374,7 @@ def _conteudo_q4(artefatos: DadosQ7) -> Conteudo:
 # ---------------------------------------------------------------------------
 
 
-def _tabela_q6(artefatos: DadosQ7) -> str:
+def _tabela_q6(artefatos: Artefatos) -> str:
     ordenada = artefatos.perfis.sort_values("salario_medio_sm", ascending=False)
     cabecalhos = (
         "Nacionalidade",
@@ -370,7 +392,7 @@ def _tabela_q6(artefatos: DadosQ7) -> str:
     return componentes.tabela(cabecalhos, linhas)
 
 
-def _indicadores_q6(artefatos: DadosQ7) -> list[tuple[str, str]]:
+def _indicadores_q6(artefatos: Artefatos) -> list[tuple[str, str]]:
     valores = artefatos.valores_q6_para_texto()
     total = valores["n_atributos"]
     return [
@@ -384,7 +406,7 @@ def _indicadores_q6(artefatos: DadosQ7) -> list[tuple[str, str]]:
     ]
 
 
-def _conteudo_q6(artefatos: DadosQ7) -> Conteudo:
+def _conteudo_q6(artefatos: Artefatos) -> Conteudo:
     inicio, fim = artefatos.configuracao["janela"]
     total_de_atributos = len(COLUNAS_ATRIBUTOS)
     return Conteudo(
@@ -432,12 +454,414 @@ def _conteudo_q6(artefatos: DadosQ7) -> Conteudo:
     )
 
 
+# ---------------------------------------------------------------------------
+# Q1 — Presença ao longo do tempo
+# ---------------------------------------------------------------------------
+
+
+def _tabela_q1(artefatos: Artefatos) -> str:
+    """Série anual consolidada.
+
+    As contagens de nacionalidades saem como travessão — e não como zero — nos anos em que
+    o lado correspondente não existe. Contar uma coluna vazia devolve 0, e imprimir 0
+    afirmaria que nenhuma nacionalidade tinha registro naquele ano: o oposto do que o dado
+    diz.
+    """
+    cabecalhos = (
+        "Ano",
+        "Registros ativos",
+        "Vínculos formais",
+        "Vínculos por registro",
+        "Nacionalidades com registro",
+        "Nacionalidades com vínculo",
+    )
+
+    def contar(valor: float, total: float) -> str:
+        return "—" if pd.isna(total) else formatar_inteiro(valor)
+
+    resumo = artefatos.resumo_anual.sort_values("ano", ascending=False)
+    linhas = [
+        (
+            f"{int(linha['ano'])}",
+            formatar_inteiro(linha["registros_ativos"]),
+            formatar_inteiro(linha["vinculos_formais"]),
+            formatar_percentual(linha["razao_vinculos_por_registros"]),
+            contar(linha["nacionalidades_com_registros"], linha["registros_ativos"]),
+            contar(linha["nacionalidades_com_vinculos"], linha["vinculos_formais"]),
+        )
+        for _, linha in resumo.iterrows()
+    ]
+    return componentes.tabela(cabecalhos, linhas)
+
+
+def _indicadores_q1(artefatos: Artefatos) -> list[tuple[str, str]]:
+    valores = artefatos.valores_q1_para_texto()
+    return [
+        (
+            f"Vínculos em {valores['ultimo_ano_vinculos']}",
+            str(valores["vinculos_ultimo"]),
+        ),
+        (f"Crescimento desde {valores['primeiro_ano_vinculos']}", str(valores["crescimento_vinculos"])),
+        (
+            f"Registros em {valores['ultimo_ano_estoque']}",
+            str(valores["registros_ultimo"]),
+        ),
+        (
+            "Conversão (vínculos por registro)",
+            f"{valores['razao_primeira']} → {valores['razao_ultima']}",
+        ),
+    ]
+
+
+def _conteudo_q1(artefatos: Artefatos) -> Conteudo:
+    valores = artefatos.valores_q1_para_texto()
+    return Conteudo(
+        cartoes=(
+            (
+                "Cobertura",
+                (
+                    "RAIS-CTPS (estoque em 31/12) · SISMIGRA-ATIVOS (dezembro)",
+                    f"Vínculos: {valores['primeiro_ano_vinculos']}–"
+                    f"{valores['ultimo_ano_vinculos']} · Registros: "
+                    f"{valores['primeiro_ano_estoque']}–{valores['ultimo_ano_estoque']}",
+                    "Variáveis: os dois totais e a razão entre eles",
+                ),
+            ),
+            (
+                "Filtros",
+                (
+                    "Ano: série completa, sem corte",
+                    "Nacionalidade: todas as que têm vínculo em algum ano",
+                    "Top N: só no tamanho da tabela",
+                ),
+            ),
+            (
+                "Nota metodológica",
+                (
+                    "Unidade: nacionalidade × ano — nunca indivíduo",
+                    "Coberturas desiguais entre os lados: nunca somados",
+                    "Só a razão entre os lados é comparável",
+                ),
+            ),
+        ),
+        evidencias=textos_q1.EVIDENCIAS,
+        figuras={
+            "evolucao": graficos_q1.evolucao_da_presenca,
+            "razao": graficos_q1.razao_entre_os_lados,
+            "diversidade": graficos_q1.diversidade_por_ano,
+        },
+        valores=lambda dados: dados.valores_q1_para_texto(),
+        rotulo_curto=textos_q1.rotulo_curto,
+        resposta=textos_q1.RESPOSTA_SINTETICA,
+        indicadores=_indicadores_q1,
+        limites=textos_q1.LIMITES,
+        ponte=textos_q1.PONTE,
+        tabela=_tabela_q1,
+        chave_tabela="anos",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Q2 — Concentração territorial
+# ---------------------------------------------------------------------------
+
+
+def _tabela_q2(artefatos: Artefatos) -> str:
+    """Nacionalidades dominantes em cada UF, com a participação no total local."""
+    ano = artefatos.ano_com_os_dois_lados()
+    totais = artefatos.uf_ano.loc[artefatos.uf_ano["ano"].eq(ano)].set_index("uf")
+    tops = artefatos.uf_top.loc[artefatos.uf_top["ano"].eq(ano)]
+    cabecalhos = ("UF", "Registros", "1ª nacionalidade", "2ª", "3ª")
+    linhas = []
+    for uf in totais["registros_ativos"].sort_values(ascending=False).index:
+        total = float(totais.loc[uf, "registros_ativos"])
+        celulas = [
+            f"{linha['nacionalidade']} — "
+            f"{formatar_percentual(linha['registros_ativos'] / total)}"
+            for _, linha in tops.loc[tops["uf"].eq(uf)].sort_values("posicao").iterrows()
+        ]
+        linhas.append((uf, formatar_inteiro(total), *celulas))
+    return componentes.tabela(cabecalhos, linhas)
+
+
+def _indicadores_q2(artefatos: Artefatos) -> list[tuple[str, str]]:
+    valores = artefatos.valores_q2_para_texto()
+    return [
+        (
+            f"UF com mais registros ({valores['ano_territorio']})",
+            f"{valores['uf_mais_registros']} · {valores['pct_registros_uf_maior']}",
+        ),
+        (
+            "UF com mais vínculos",
+            f"{valores['uf_mais_vinculos']} · {valores['pct_vinculos_uf_maior']}",
+        ),
+        ("Razão do país", f"{valores['razao_pais']} registros por vínculo"),
+        (
+            "Razão entre UFs",
+            f"{valores['razao_menor']} ({valores['uf_razao_menor']}) a "
+            f"{valores['razao_maior']} ({valores['uf_razao_maior']})",
+        ),
+    ]
+
+
+def _conteudo_q2(artefatos: Artefatos) -> Conteudo:
+    valores = artefatos.valores_q2_para_texto()
+    return Conteudo(
+        cartoes=(
+            (
+                "Cobertura",
+                (
+                    "SISMIGRA (residência) · RAIS-CTPS (estabelecimento)",
+                    f"Ano: {valores['ano_territorio']} — o último com os dois lados",
+                    f"Variáveis: {valores['n_ufs']} UFs × os dois conceitos",
+                ),
+            ),
+            (
+                "Filtros",
+                (
+                    f"Ano: fixo em {valores['ano_territorio']}",
+                    f"Nacionalidade: as {valores['n_sustentadas']} acima do piso de "
+                    f"{valores['piso_registros']} registros, só na figura de concentração",
+                    "Top N: as três primeiras por UF, na tabela",
+                ),
+            ),
+            (
+                "Nota metodológica",
+                (
+                    "Unidade: UF, com nacionalidade no cruzamento",
+                    "Os dois conceitos de UF nunca são somados nem igualados",
+                    "HHI mede concentração entre UFs, não volume",
+                ),
+            ),
+        ),
+        evidencias=textos_q2.EVIDENCIAS,
+        figuras={
+            "ufs": graficos_q2.concentracao_por_uf,
+            "razao": graficos_q2.registros_por_vinculo,
+            "hhi": graficos_q2.hhi_por_nacionalidade,
+        },
+        valores=lambda dados: dados.valores_q2_para_texto(),
+        rotulo_curto=textos_q2.rotulo_curto,
+        resposta=textos_q2.RESPOSTA_SINTETICA,
+        indicadores=_indicadores_q2,
+        limites=textos_q2.LIMITES,
+        ponte=textos_q2.PONTE,
+        tabela=_tabela_q2,
+        chave_tabela="tops",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Q3 — Fluxo anual de registros
+# ---------------------------------------------------------------------------
+
+
+def _tabela_q3(artefatos: Artefatos) -> str:
+    """Fluxo anual, com a lacuna da fonte e o ano em curso explícitos na própria lista."""
+    fluxo = artefatos.fluxo.set_index("ano")
+    incompletos = artefatos.anos_incompletos()
+    cabecalhos = (
+        "Ano",
+        "Registros",
+        "Nacionalidades",
+        "Com tipologia",
+        "Acolhida",
+        "Trabalho",
+        "Mulheres",
+    )
+    linhas = []
+    anos = [int(ano) for ano in fluxo.index]
+    for ano in sorted(range(min(anos), max(anos) + 1), reverse=True):
+        if ano not in fluxo.index:
+            linhas.append((f"{ano} · sem dado na fonte", "—", "—", "—", "—", "—", "—"))
+            continue
+        linha = fluxo.loc[ano]
+        rotulo = f"{ano} · em curso" if ano in incompletos else f"{ano}"
+        linhas.append(
+            (
+                rotulo,
+                formatar_inteiro(linha["registros_no_ano"]),
+                formatar_inteiro(linha["nacionalidades"]),
+                formatar_inteiro(linha["registros_com_tipologia"]),
+                formatar_percentual(linha["pct_acolhida"]),
+                formatar_percentual(linha["pct_trabalho"]),
+                formatar_percentual(linha["pct_feminino"]),
+            )
+        )
+    return componentes.tabela(cabecalhos, linhas)
+
+
+def _indicadores_q3(artefatos: Artefatos) -> list[tuple[str, str]]:
+    valores = artefatos.valores_q3_para_texto()
+    return [
+        (
+            f"Fluxo em {valores['maior_ano']}",
+            str(valores["maior_registros"]),
+        ),
+        (f"Crescimento desde {valores['primeiro_ano_fluxo']}", str(valores["crescimento_fluxo"])),
+        (
+            "Maior queda",
+            f"{valores['queda_percentual']} em {valores['queda_ano']}",
+        ),
+        (
+            "Acolhida no fluxo",
+            f"{valores['pct_acolhida_primeiro']} → {valores['pct_acolhida_ultimo']}",
+        ),
+    ]
+
+
+def _conteudo_q3(artefatos: Artefatos) -> Conteudo:
+    valores = artefatos.valores_q3_para_texto()
+    return Conteudo(
+        cartoes=(
+            (
+                "Cobertura",
+                (
+                    "SISMIGRA — microdados por data de registro",
+                    f"Anos: {valores['primeiro_ano_fluxo']}–{valores['ultimo_ano_fluxo']}, "
+                    f"sem {valores['lacunas']}",
+                    "Variáveis: fluxo, origens e composição do amparo",
+                ),
+            ),
+            (
+                "Filtros",
+                (
+                    "Ano: série completa, com o ano em curso marcado",
+                    "Nacionalidade: agregada, não filtrada",
+                    "Top N: só no tamanho da tabela",
+                ),
+            ),
+            (
+                "Nota metodológica",
+                (
+                    "Unidade: registro com data no ano — fluxo, não estoque",
+                    f"Tipologia de amparo publicada a partir de {valores['primeiro_ano_amparo']}",
+                    f"{valores['ano_em_curso']} está em curso na data da extração",
+                ),
+            ),
+        ),
+        evidencias=textos_q3.EVIDENCIAS,
+        figuras={
+            "fluxo": graficos_q3.fluxo_anual,
+            "amparo": graficos_q3.composicao_do_amparo,
+        },
+        valores=lambda dados: dados.valores_q3_para_texto(),
+        rotulo_curto=textos_q3.rotulo_curto,
+        resposta=textos_q3.RESPOSTA_SINTETICA,
+        indicadores=_indicadores_q3,
+        limites=textos_q3.LIMITES,
+        ponte=textos_q3.PONTE,
+        tabela=_tabela_q3,
+        chave_tabela="anos",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Q5 — Persistência
+# ---------------------------------------------------------------------------
+
+
+def _tabela_q5(artefatos: Artefatos) -> str:
+    """Persistência por nacionalidade, do maior para o menor tempo de presença."""
+    cabecalhos = (
+        "Nacionalidade",
+        "Anos com vínculo",
+        "Primeiro ano",
+        "Último ano",
+        "Vínculos no último ano",
+        "Registros no último ano",
+    )
+    ordenada = artefatos.persistencia.sort_values(
+        ["anos_com_vinculos", "vinculos_formais_no_ultimo_ano"], ascending=[False, False]
+    )
+    linhas = [
+        (
+            linha["nacionalidade"],
+            f"{int(linha['anos_com_vinculos'])}",
+            f"{int(linha['primeiro_ano_vinculos'])}",
+            f"{int(linha['ultimo_ano_vinculos'])}",
+            formatar_inteiro(linha["vinculos_formais_no_ultimo_ano"]),
+            formatar_inteiro(linha["registros_ativos_no_ultimo_ano"]),
+        )
+        for _, linha in ordenada.iterrows()
+    ]
+    return componentes.tabela(cabecalhos, linhas)
+
+
+def _indicadores_q5(artefatos: Artefatos) -> list[tuple[str, str]]:
+    valores = artefatos.valores_q5_para_texto()
+    return [
+        (
+            f"Com os {valores['maximo_anos']} anos",
+            f"{valores['n_completas']} de {valores['n_total']}",
+        ),
+        ("Mediana de presença", f"{valores['mediana_anos']} anos"),
+        (
+            f"Acima do piso de {valores['piso_registros']}",
+            f"{valores['n_sustentadas']} nacionalidades",
+        ),
+        (
+            "Presença com lacuna",
+            f"{valores['n_com_lacuna']} · {valores['pct_com_lacuna']}",
+        ),
+    ]
+
+
+def _conteudo_q5(artefatos: Artefatos) -> Conteudo:
+    valores = artefatos.valores_q5_para_texto()
+    return Conteudo(
+        cartoes=(
+            (
+                "Cobertura",
+                (
+                    "RAIS-CTPS e SISMIGRA-ATIVOS — presença por nacionalidade",
+                    f"Anos: {valores['primeiro_ano']}–{valores['ultimo_ano']}, série completa",
+                    f"Variáveis: anos distintos com vínculo ({valores['maximo_anos']} no máximo)",
+                ),
+            ),
+            (
+                "Filtros",
+                (
+                    "Ano: sem recorte — a persistência é o objeto",
+                    f"Nacionalidade: as {valores['n_total']} com vínculo em algum ano",
+                    f"Piso: {valores['piso_registros']} registros ativos, só nas figuras",
+                ),
+            ),
+            (
+                "Nota metodológica",
+                (
+                    "Unidade: nacionalidade — nunca indivíduo",
+                    "Anos distintos, não intervalo contínuo",
+                    "Presença não é permanência das mesmas pessoas",
+                ),
+            ),
+        ),
+        evidencias=textos_q5.EVIDENCIAS,
+        figuras={
+            "distribuicao": graficos_q5.distribuicao_da_persistencia,
+            "lacunas": graficos_q5.intervalo_versus_presenca,
+        },
+        valores=lambda dados: dados.valores_q5_para_texto(),
+        rotulo_curto=textos_q5.rotulo_curto,
+        resposta=textos_q5.RESPOSTA_SINTETICA,
+        indicadores=_indicadores_q5,
+        limites=textos_q5.LIMITES,
+        ponte=textos_q5.PONTE,
+        tabela=_tabela_q5,
+        chave_tabela="anos",
+    )
+
+
 # As abas que já declaram conteúdo. A validação deriva daqui o que esperar do HTML, em
 # vez de manter uma contagem paralela que envelhece em silêncio.
-CONTEUDO_POR_ABA: dict[str, Callable[[DadosQ7], Conteudo]] = {
-    ABA_Q7: _conteudo_q7,
+CONTEUDO_POR_ABA: dict[str, Callable[[Artefatos], Conteudo]] = {
+    ABA_Q1: _conteudo_q1,
+    ABA_Q2: _conteudo_q2,
+    ABA_Q3: _conteudo_q3,
     ABA_Q4: _conteudo_q4,
+    ABA_Q5: _conteudo_q5,
     ABA_Q6: _conteudo_q6,
+    ABA_Q7: _conteudo_q7,
 }
 
 

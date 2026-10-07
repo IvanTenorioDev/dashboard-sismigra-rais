@@ -2,7 +2,7 @@
 
 Mesmo registro técnico da Q4 e da Q7: leitor com formação quantitativa, sem didatismo e
 sem metáfora onde cabe o termo. Nenhum número é escrito à mão — todos vêm de
-`DadosQ7.valores_q6_para_texto()` e são preenchidos por `nucleo.textos.preencher`.
+`Artefatos.valores_q6_para_texto()` e são preenchidos por `nucleo.textos.preencher`.
 """
 
 from __future__ import annotations

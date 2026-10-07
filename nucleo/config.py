@@ -21,7 +21,7 @@ def pasta_dados() -> Path:
     """
     return Path(os.environ.get("DASHBOARD_DADOS", RAIZ / "dados" / "q7"))
 
-ARQUIVOS_Q7: dict[str, str] = {
+ARQUIVOS_PERFIL: dict[str, str] = {
     "configuracao": "q7_config.json",
     "perfis": "q7_perfis.csv",
     "pca": "q7_pca.csv",
@@ -31,6 +31,21 @@ ARQUIVOS_Q7: dict[str, str] = {
     "regioes": "q7_regioes.csv",
     "arvores": "q7_arvores.csv",
 }
+
+# Artefatos com grão temporal ou territorial, escritos pela FASE 9b. A chave é o nome
+# curto usado no código; o arquivo é o que o notebook escreve. Os prefixos q1/q2/q3/q5
+# são da pergunta que cada um atende, não do formato.
+ARQUIVOS_TEMPORAIS: dict[str, str] = {
+    "serie_anual": "q1_serie_anual.csv",
+    "resumo_anual": "q1_resumo_por_ano.csv",
+    "uf_ano": "q2_uf_ano.csv",
+    "concentracao_territorial": "q2_concentracao.csv",
+    "uf_top": "q2_uf_top_nacionalidades.csv",
+    "fluxo": "q3_fluxo_ano.csv",
+    "persistencia": "q5_persistencia.csv",
+}
+
+ARQUIVOS: dict[str, str] = {**ARQUIVOS_PERFIL, **ARQUIVOS_TEMPORAIS}
 
 COLUNAS_ATRIBUTOS: tuple[str, ...] = (
     "salario_medio_sm",
@@ -78,19 +93,31 @@ PISO_PERFIL = 100
 # Quantas nacionalidades a tabela de rastreabilidade exibe por padrão.
 NACIONALIDADES_NA_TABELA = 60
 
+# Pisos de massa declarados. Não são filtros de tela: são o mínimo para que uma razão ou
+# um índice de concentração signifiquem alguma coisa. Abaixo deles a estatística existe e
+# é vazia de conteúdo — uma nacionalidade com um único registro tem HHI igual a 1 porque
+# está numa UF só, e essa é uma afirmação sobre a amostra, não sobre o território.
+PISO_REGISTROS = 500
+PISO_VINCULOS = 100
+
 # A navegação do slide 11: abas por pergunta, não por técnica.
+ABA_Q1 = "Q1 Presença"
+ABA_Q2 = "Q2 Território"
+ABA_Q3 = "Q3 Registros"
 ABA_Q4 = "Q4 Representação"
+ABA_Q5 = "Q5 Persistência"
 ABA_Q6 = "Q6 Atributos"
 ABA_Q7 = "Q7 Multivariado"
+ABA_METODO = "Método & limites"
 ABAS: tuple[str, ...] = (
-    "Q1 Presença",
-    "Q2 Território",
-    "Q3 Registros",
+    ABA_Q1,
+    ABA_Q2,
+    ABA_Q3,
     ABA_Q4,
-    "Q5 Persistência",
+    ABA_Q5,
     ABA_Q6,
     ABA_Q7,
-    "Método & limites",
+    ABA_METODO,
 )
 
 # Números congelados na validação v5. Servem para CONFERIR a execução do notebook,

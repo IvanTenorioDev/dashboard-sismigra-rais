@@ -53,7 +53,7 @@ def preencher(texto: str, valores: dict[str, object]) -> str:
     """Preenche os números da narrativa com os valores desta execução.
 
     Nenhum número destes textos é escrito à mão: todos vêm de
-    `DadosQ7.valores_para_texto`. Um valor fixado no texto divergiria em silêncio na
+    `Artefatos.valores_para_texto`. Um valor fixado no texto divergiria em silêncio na
     próxima execução do notebook — foi o que aconteceu com a concordância KMeans × Ward
     em k=2, registrada como 0,007 e que passou a 0,43 quando a elegibilidade foi corrigida.
     """

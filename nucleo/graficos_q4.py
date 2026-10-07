@@ -15,7 +15,7 @@ import pandas as pd
 import plotly.graph_objects as go
 
 from nucleo.config import AZUL, CINZA, LARANJA
-from nucleo.dados import FAIXAS_Q, DadosQ7
+from nucleo.dados import FAIXAS_Q, Artefatos
 from nucleo.formatos import formatar_decimal, formatar_inteiro
 from nucleo.graficos_base import (
     ALTURA,
@@ -33,7 +33,7 @@ from nucleo.graficos_base import (
 POSICOES_DO_ROTULO = ("top center", "bottom center")
 
 
-def distribuicao_q(artefatos: DadosQ7) -> go.Figure:
+def distribuicao_q(artefatos: Artefatos) -> go.Figure:
     """Histograma do índice em escala logarítmica, com a linha de paridade."""
     indice = artefatos.perfis["Q_medio"]
     mediana = float(indice.median())
@@ -91,7 +91,7 @@ def _rotulos_dos_extremos(perfis: pd.DataFrame, quantos: int = 3) -> go.Scatter:
     )
 
 
-def q_versus_volume(artefatos: DadosQ7) -> go.Figure:
+def q_versus_volume(artefatos: Artefatos) -> go.Figure:
     """Índice contra volume de vínculos — onde os valores extremos realmente estão."""
     perfis = artefatos.perfis
     limite_de_q = faixa_log(perfis["Q_medio"], 1.1)
@@ -132,7 +132,7 @@ def q_versus_volume(artefatos: DadosQ7) -> go.Figure:
     return figura
 
 
-def q_versus_remuneracao(artefatos: DadosQ7) -> go.Figure:
+def q_versus_remuneracao(artefatos: Artefatos) -> go.Figure:
     """Índice contra remuneração, com a mediana de cada faixa de Q sobreposta."""
     perfis = artefatos.perfis
     faixas = artefatos.faixas_de_q()

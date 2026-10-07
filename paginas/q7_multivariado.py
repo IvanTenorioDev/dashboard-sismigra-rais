@@ -16,14 +16,14 @@ import streamlit as st
 
 from nucleo import graficos, layout, textos
 from nucleo.config import COLUNAS_ATRIBUTOS, LARANJA, ROTULOS_ATRIBUTOS
-from nucleo.dados import DadosQ7
+from nucleo.dados import Artefatos
 from nucleo.formatos import formatar_atributo, formatar_decimal, formatar_inteiro
 
 OPCOES_TOPO = ("10", "25", "50", "todas")
 ALTURA_TABELA = 430
 COLUNA_Q_FORMATADO = "Q (janela)"
 
-FIGURAS: dict[str, Callable[[DadosQ7], object]] = {
+FIGURAS: dict[str, Callable[[Artefatos], object]] = {
     "gradiente": graficos.dispersao_pca,
     "cargas": graficos.cargas_pca,
     "regioes": graficos.mapa_regioes,
@@ -34,7 +34,7 @@ FIGURAS: dict[str, Callable[[DadosQ7], object]] = {
 }
 
 
-def _linhas_cobertura(artefatos: DadosQ7) -> list[str]:
+def _linhas_cobertura(artefatos: Artefatos) -> list[str]:
     inicio, fim = artefatos.configuracao["janela"]
     return [
         "RAIS-CTPS (estoque em 31/12) · SISMIGRA-ATIVOS (fotografia de dezembro)",
@@ -43,7 +43,7 @@ def _linhas_cobertura(artefatos: DadosQ7) -> list[str]:
     ]
 
 
-def _linhas_filtros(artefatos: DadosQ7) -> list[str]:
+def _linhas_filtros(artefatos: Artefatos) -> list[str]:
     return [
         f"Ano: fixo em {artefatos.configuracao['janela'][0]}–{artefatos.configuracao['janela'][1]}",
         f"Nacionalidade: as {artefatos.n_elegiveis} elegíveis (a estrutura depende do conjunto)",
@@ -51,7 +51,7 @@ def _linhas_filtros(artefatos: DadosQ7) -> list[str]:
     ]
 
 
-def _linhas_metodo(artefatos: DadosQ7) -> list[str]:
+def _linhas_metodo(artefatos: Artefatos) -> list[str]:
     return [
         "Unidade: nacionalidade — nunca indivíduo",
         f"Cobertura: {artefatos.n_elegiveis} de {artefatos.n_universo} comparáveis entre as fontes",
@@ -59,7 +59,7 @@ def _linhas_metodo(artefatos: DadosQ7) -> list[str]:
     ]
 
 
-def _indicadores(artefatos: DadosQ7) -> list[tuple[str, str]]:
+def _indicadores(artefatos: Artefatos) -> list[tuple[str, str]]:
     resumo = graficos.resumo_numerico(artefatos)
     return [
         ("Regiões (k escolhido)", resumo["Regiões"]),
@@ -95,7 +95,7 @@ def _seletor_de_evidencia() -> textos.Evidencia:
     return por_rotulo[escolhido or rotulos[0]]
 
 
-def _tabela_das_nacionalidades(artefatos: DadosQ7) -> None:
+def _tabela_das_nacionalidades(artefatos: Artefatos) -> None:
     tabela = artefatos.perfis.copy()
     tabela[COLUNA_Q_FORMATADO] = tabela["Q_medio"].map(lambda valor: formatar_decimal(valor, 2))
     tabela["Vínculos na janela"] = tabela["V_total"].map(formatar_inteiro)
@@ -118,7 +118,7 @@ def _tabela_das_nacionalidades(artefatos: DadosQ7) -> None:
     st.dataframe(tabela, hide_index=True, height=ALTURA_TABELA)
 
 
-def _regras_das_arvores(artefatos: DadosQ7) -> None:
+def _regras_das_arvores(artefatos: Artefatos) -> None:
     for _, linha in artefatos.arvores.iterrows():
         with st.expander(f"Regra lida — {linha['descricao_alvo']}"):
             st.code(graficos.texto_da_regra(artefatos, linha["arvore"]), language="text")
@@ -139,7 +139,7 @@ def _grafico(figura: object) -> None:
 
 
 def _renderizar_evidencia(
-    artefatos: DadosQ7, evidencia: textos.Evidencia, valores: dict[str, object]
+    artefatos: Artefatos, evidencia: textos.Evidencia, valores: dict[str, object]
 ) -> None:
     st.markdown(f"**{evidencia.titulo}**")
     if evidencia.chave == "quem":
@@ -165,7 +165,7 @@ def _ponte_com_o_problema(valores: dict[str, object]) -> None:
     )
 
 
-def renderizar(artefatos: DadosQ7) -> None:
+def renderizar(artefatos: Artefatos) -> None:
     """Desenha a aba Q7 inteira."""
     valores = artefatos.valores_para_texto()
     layout.tres_cartoes(

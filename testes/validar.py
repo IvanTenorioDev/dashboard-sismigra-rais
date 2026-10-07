@@ -41,7 +41,7 @@ from nucleo.config import (  # noqa: E402
     TOLERANCIA_CONFERENCIA,
     TOLERANCIA_MEDIA,
 )
-from nucleo.dados import DadosQ7, ArtefatosAusentes, carregar, pasta_dados  # noqa: E402
+from nucleo.dados import Artefatos, ArtefatosAusentes, carregar, pasta_dados  # noqa: E402
 from paginas.q7_multivariado import FIGURAS  # noqa: E402
 
 SEMENTE_FIXTURE = 42
@@ -153,6 +153,251 @@ def _gerar_arvores() -> pd.DataFrame:
     ])
 
 
+ANOS_DOS_VINCULOS: tuple[int, ...] = tuple(range(2010, 2026))
+ANOS_DO_ESTOQUE: tuple[int, ...] = (2022, 2023, 2024, 2025)
+ANO_EM_CURSO = 2026
+ANO_AUSENTE_DA_FONTE = 2017
+ANOS_DO_FLUXO: tuple[int, ...] = tuple(
+    sorted(set(range(2010, ANO_EM_CURSO + 1)) - {ANO_AUSENTE_DA_FONTE})
+)
+UFS_DA_FIXTURE: tuple[str, ...] = ("SP", "PR", "SC", "RS", "RR", "AC")
+MICRO_NACIONALIDADES = 4
+
+
+def _serie_anual_da_fixture(
+    gerador: np.random.Generator, perfis: pd.DataFrame
+) -> pd.DataFrame:
+    """Série nacionalidade × ano, com a assimetria de cobertura das fontes reais.
+
+    O vínculo existe em toda a série e o estoque de registros só a partir de 2022. Uma
+    fixture com os dois lados completos não exercitaria nem a lacuna que a Q1 descreve nem
+    a contagem de presença que a Q5 faz. A cauda curta entra de propósito: é o caso que a
+    Q5 precisa distinguir de presença interrompida e que o piso remové.
+    """
+    linhas: list[dict[str, object]] = []
+    for posicao in range(len(perfis)):
+        nacionalidade = perfis.loc[posicao, "nacionalidade"]
+        escala = float(perfis.loc[posicao, "V_total"])
+        for ano in ANOS_DOS_VINCULOS:
+            if posicao < 2 and ano in (2014, 2015):
+                continue
+            vinculos = escala * (0.5 + 0.5 * (ano - 2010) / 15) * gerador.uniform(0.4, 1.6)
+            registros = vinculos * 4.7
+            tem_estoque = ano in ANOS_DO_ESTOQUE
+            linhas.append(
+                {
+                    "ano": ano,
+                    "nacionalidade": nacionalidade,
+                    "registros_ativos": round(registros, 4) if tem_estoque else None,
+                    "registros_no_ano": round(registros, 4) if tem_estoque else None,
+                    "vinculos_formais": round(vinculos, 4),
+                    "Q": round(vinculos / registros * 3, 6) if tem_estoque else None,
+                }
+            )
+    for ordem in range(MICRO_NACIONALIDADES):
+        for ano in ANOS_DOS_VINCULOS[-(ordem + 1) :]:
+            tem_estoque = ano in ANOS_DO_ESTOQUE
+            linhas.append(
+                {
+                    "ano": ano,
+                    "nacionalidade": f"MICRO {ordem}",
+                    "registros_ativos": 1.0 if tem_estoque else None,
+                    "registros_no_ano": 1.0 if tem_estoque else None,
+                    "vinculos_formais": 1.0,
+                    "Q": 1.0 if tem_estoque else None,
+                }
+            )
+    return pd.DataFrame(linhas)
+
+
+def _resumo_anual_da_serie(serie: pd.DataFrame) -> pd.DataFrame:
+    """Totais por ano, com a mesma regra do notebook: ausência não vira zero."""
+    grupo = serie.groupby("ano")
+    resumo = pd.DataFrame(
+        {
+            "registros_ativos": grupo["registros_ativos"].sum(min_count=1),
+            "registros_no_ano": grupo["registros_no_ano"].sum(min_count=1),
+            "vinculos_formais": grupo["vinculos_formais"].sum(min_count=1),
+            "nacionalidades_com_registros": grupo["registros_ativos"].count(),
+            "nacionalidades_com_vinculos": grupo["vinculos_formais"].count(),
+        }
+    )
+    resumo["razao_vinculos_por_registros"] = (
+        resumo["vinculos_formais"] / resumo["registros_ativos"]
+    )
+    return resumo.reset_index()
+
+
+def _territorio_da_fixture(
+    gerador: np.random.Generator, serie: pd.DataFrame
+) -> pd.DataFrame:
+    """UF × ano nos dois conceitos, com o estoque só nos anos em que ele existe."""
+    vinculos_do_ano = serie.groupby("ano")["vinculos_formais"].sum(min_count=1)
+    registros_do_ano = serie.groupby("ano")["registros_ativos"].sum(min_count=1)
+    linhas = []
+    for ano in ANOS_DOS_VINCULOS:
+        pesos_vinculos = gerador.dirichlet(np.ones(len(UFS_DA_FIXTURE)) * 1.5)
+        pesos_registros = gerador.dirichlet(np.ones(len(UFS_DA_FIXTURE)) * 1.5)
+        for posicao, uf in enumerate(UFS_DA_FIXTURE):
+            linhas.append(
+                {
+                    "ano": ano,
+                    "uf": uf,
+                    "vinculos_formais": round(
+                        float(vinculos_do_ano.loc[ano]) * pesos_vinculos[posicao], 4
+                    ),
+                    "registros_ativos": (
+                        round(float(registros_do_ano.loc[ano]) * pesos_registros[posicao], 4)
+                        if ano in ANOS_DO_ESTOQUE
+                        else None
+                    ),
+                }
+            )
+    return pd.DataFrame(linhas)
+
+
+def _concentracao_da_fixture(
+    gerador: np.random.Generator, serie: pd.DataFrame
+) -> pd.DataFrame:
+    """HHI territorial por nacionalidade e ano nos dois conceitos de UF.
+
+    O índice é gerado, e não calculado do território: a fixture testa a leitura e a regra
+    do piso, não a fórmula do HHI. Nacionalidade de um único registro recebe 1, como nos
+    dados reais — e é exatamente ela que o piso precisa remover.
+    """
+    linhas = []
+    for _, linha in serie.iterrows():
+        tem_estoque = not pd.isna(linha["registros_ativos"])
+        amostra_de_um = tem_estoque and float(linha["registros_ativos"]) <= 1
+        hhi_registros = 1.0 if amostra_de_um else float(gerador.uniform(0.1, 0.9))
+        linhas.append(
+            {
+                "ano": int(linha["ano"]),
+                "nacionalidade": linha["nacionalidade"],
+                "hhi_uf_registros": round(hhi_registros, 6) if tem_estoque else None,
+                "uf_registros_dominante": UFS_DA_FIXTURE[
+                    int(gerador.integers(0, len(UFS_DA_FIXTURE)))
+                ],
+                "participacao_uf_registros_dominante": (
+                    round(hhi_registros, 6) if tem_estoque else None
+                ),
+                "hhi_uf_rais": round(float(gerador.uniform(0.1, 0.9)), 6),
+                "uf_rais_dominante": UFS_DA_FIXTURE[
+                    int(gerador.integers(0, len(UFS_DA_FIXTURE)))
+                ],
+                "participacao_uf_rais_dominante": round(float(gerador.uniform(0.3, 0.9)), 6),
+            }
+        )
+    return pd.DataFrame(linhas)
+
+
+def _tops_por_uf_da_fixture(
+    gerador: np.random.Generator, territorio: pd.DataFrame, serie: pd.DataFrame
+) -> pd.DataFrame:
+    """As três origens com mais registros em cada UF, nos anos com estoque."""
+    nacionalidades = sorted(serie["nacionalidade"].unique())
+    linhas = []
+    for _, linha in territorio.loc[territorio["registros_ativos"].notna()].iterrows():
+        pesos = gerador.dirichlet(np.ones(3) * 1.2) * gerador.uniform(0.4, 0.7)
+        escolhidas = gerador.choice(nacionalidades, size=3, replace=False)
+        for posicao, nacionalidade in enumerate(escolhidas, start=1):
+            linhas.append(
+                {
+                    "ano": int(linha["ano"]),
+                    "uf": linha["uf"],
+                    "posicao": posicao,
+                    "nacionalidade": nacionalidade,
+                    "registros_ativos": round(
+                        float(linha["registros_ativos"]) * pesos[posicao - 1], 4
+                    ),
+                }
+            )
+    return pd.DataFrame(linhas)
+
+
+def _fluxo_da_fixture(gerador: np.random.Generator) -> pd.DataFrame:
+    """Fluxo anual com a lacuna da fonte e o ano em curso, como nos dados reais."""
+    linhas = []
+    for ano in ANOS_DO_FLUXO:
+        registros = 54_000 * (1.12 ** (ano - 2010)) * gerador.uniform(0.97, 1.03)
+        if ano == ANO_EM_CURSO:
+            registros *= 0.66
+        tem_tipologia = ano >= 2021
+        linhas.append(
+            {
+                "ano": ano,
+                "registros_no_ano": round(registros),
+                "nacionalidades": int(gerador.integers(150, 200)),
+                "registros_com_tipologia": round(registros) if tem_tipologia else None,
+                "pct_acolhida": (
+                    round(float(gerador.uniform(0.3, 0.5)), 6) if tem_tipologia else None
+                ),
+                "pct_trabalho": (
+                    round(float(gerador.uniform(0.03, 0.06)), 6) if tem_tipologia else None
+                ),
+                "pct_feminino": round(float(gerador.uniform(0.32, 0.46)), 6),
+            }
+        )
+    return pd.DataFrame(linhas)
+
+
+def _persistencia_da_serie(serie: pd.DataFrame) -> pd.DataFrame:
+    """Persistência por nacionalidade, derivada da própria série da fixture."""
+    linhas = []
+    for nacionalidade, grupo in serie.groupby("nacionalidade"):
+        com_vinculo = grupo.loc[grupo["vinculos_formais"].notna()]
+        com_registro = grupo.loc[grupo["registros_ativos"].notna()]
+        ultimo_vinculo = com_vinculo.loc[
+            com_vinculo["ano"].eq(com_vinculo["ano"].max())
+        ].iloc[0]
+        ultimo_registro = (
+            com_registro.loc[com_registro["ano"].eq(com_registro["ano"].max())].iloc[0]
+            if len(com_registro)
+            else None
+        )
+        linhas.append(
+            {
+                "nacionalidade": nacionalidade,
+                "anos_com_vinculos": len(com_vinculo),
+                "primeiro_ano_vinculos": int(com_vinculo["ano"].min()),
+                "ultimo_ano_vinculos": int(ultimo_vinculo["ano"]),
+                "vinculos_formais_no_ultimo_ano": float(ultimo_vinculo["vinculos_formais"]),
+                "anos_com_registros": len(com_registro),
+                "primeiro_ano_registros": (
+                    int(com_registro["ano"].min()) if len(com_registro) else None
+                ),
+                "ultimo_ano_registros": (
+                    int(ultimo_registro["ano"]) if ultimo_registro is not None else None
+                ),
+                "registros_ativos_no_ultimo_ano": (
+                    float(ultimo_registro["registros_ativos"])
+                    if ultimo_registro is not None
+                    else None
+                ),
+            }
+        )
+    return pd.DataFrame(linhas)
+
+
+def _gerar_abas_temporais(
+    destino: Path, gerador: np.random.Generator, perfis: pd.DataFrame
+) -> None:
+    """Escreve os sete artefatos que alimentam as abas Q1, Q2, Q3 e Q5."""
+    serie = _serie_anual_da_fixture(gerador, perfis)
+    territorio = _territorio_da_fixture(gerador, serie)
+    escritas = {
+        "q1_serie_anual.csv": serie,
+        "q1_resumo_por_ano.csv": _resumo_anual_da_serie(serie),
+        "q2_uf_ano.csv": territorio,
+        "q2_concentracao.csv": _concentracao_da_fixture(gerador, serie),
+        "q2_uf_top_nacionalidades.csv": _tops_por_uf_da_fixture(gerador, territorio, serie),
+        "q3_fluxo_ano.csv": _fluxo_da_fixture(gerador),
+        "q5_persistencia.csv": _persistencia_da_serie(serie),
+    }
+    for nome, tabela in escritas.items():
+        tabela.to_csv(destino / nome, index=False, encoding="utf-8-sig")
+
+
 def gerar_fixture(destino: Path) -> Path:
     """Escreve artefatos sintéticos com o mesmo esquema dos reais."""
     gerador = np.random.default_rng(SEMENTE_FIXTURE)
@@ -167,6 +412,7 @@ def gerar_fixture(destino: Path) -> Path:
     _gerar_diagnostico(gerador).to_csv(destino / "q7_diagnostico_k.csv", index=False, encoding="utf-8-sig")
     _gerar_regioes(perfis).to_csv(destino / "q7_regioes.csv", index=False, encoding="utf-8-sig")
     _gerar_arvores().to_csv(destino / "q7_arvores.csv", index=False, encoding="utf-8-sig")
+    _gerar_abas_temporais(destino, gerador, perfis)
 
     configuracao = {
         "janela": [2023, 2025],
@@ -183,6 +429,8 @@ def gerar_fixture(destino: Path) -> Path:
         "com_os_6_atributos": 183,
         "elegiveis": int(len(perfis)),
         "vinculos_das_elegiveis": int(perfis["V_total"].sum()),
+        "cobertura_estoque_sismigra": list(ANOS_DO_ESTOQUE),
+        "anos_com_tipologia_de_amparo": [ano for ano in ANOS_DO_FLUXO if ano >= 2021],
         "fixture": True,
     }
     (destino / "q7_config.json").write_text(
@@ -191,7 +439,7 @@ def gerar_fixture(destino: Path) -> Path:
     return destino
 
 
-def _renderizar_tudo(artefatos: DadosQ7) -> list[str]:
+def _renderizar_tudo(artefatos: Artefatos) -> list[str]:
     problemas = []
     for chave, construtor in FIGURAS.items():
         try:
