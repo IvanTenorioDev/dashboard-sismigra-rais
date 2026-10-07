@@ -636,6 +636,7 @@ def validar_html() -> int:
     # desenha, no navegador. Contar a primeira é o que verifica o arquivo gerado.
     graficos = html.count('class="plotly-graph-div"')
     tabelas = html.count('<table class="tabela"')
+    blocos = html.count('class="cartao cartao-alto bloco-extra"')
     secoes_ativas = html.count('class="secao ativa"')
 
     # O que se espera vem das próprias declarações, não de uma constante paralela: uma
@@ -643,8 +644,11 @@ def validar_html() -> int:
     artefatos = carregar()
     declarados = tuple(declaracao(artefatos) for declaracao in CONTEUDO_POR_ABA.values())
     esperado_graficos = sum(len(c.evidencias) - (1 if c.tabela else 0) for c in declarados)
-    esperado_tabelas = sum(1 for c in declarados if c.tabela)
+    # Cada bloco de largura total traz uma tabela: a contagem vem da declaração, não de uma
+    # estimativa paralela do validador.
+    esperado_tabelas = sum((1 if c.tabela else 0) + len(c.blocos) for c in declarados)
     esperado_evidencias = sum(len(c.evidencias) for c in declarados)
+    esperado_blocos = sum(len(c.blocos) for c in declarados)
 
     # `Plotly.newPlot` resolve o alvo por `getElementById`: um id repetido faz o
     # gráfico ser desenhado no bloco externo e a leitura sair do cartão. Ids de
@@ -664,11 +668,16 @@ def validar_html() -> int:
 
     print(f"gerado: {destino} ({destino.stat().st_size / 1024:,.0f} KB)")
     print(f"  abas: {len(identificadores)} | secções ativas na carga: {secoes_ativas}")
-    print(f"  gráficos embutidos: {graficos} | tabelas: {tabelas} | evidências: {evidencias}")
+    print(
+        f"  gráficos embutidos: {graficos} | tabelas: {tabelas} | "
+        f"evidências: {evidencias} | blocos de largura total: {blocos}"
+    )
     if graficos != esperado_graficos:
         problemas.append(f"gráficos: esperado {esperado_graficos}, encontrado {graficos}")
     if tabelas != esperado_tabelas:
         problemas.append(f"tabelas: esperado {esperado_tabelas}, encontrado {tabelas}")
+    if blocos != esperado_blocos:
+        problemas.append(f"blocos: esperado {esperado_blocos}, encontrado {blocos}")
     if secoes_ativas != 1:
         problemas.append(f"secções ativas: esperado 1, encontrado {secoes_ativas}")
 

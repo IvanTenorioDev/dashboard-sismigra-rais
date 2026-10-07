@@ -12,6 +12,7 @@ from collections.abc import Iterable, Sequence
 import plotly.graph_objects as go
 
 from gerador import tema
+from nucleo.config import PISO_REGISTROS, PISO_VINCULOS
 
 NEGRITO = re.compile(r"\*\*(.+?)\*\*")
 ITALICO = re.compile(r"\*(.+?)\*")
@@ -24,11 +25,6 @@ def para_html(texto: str) -> str:
     seria trazer uma dependência para resolver um problema que não existe.
     """
     return ITALICO.sub(r"<i>\1</i>", NEGRITO.sub(r"<b>\1</b>", texto))
-
-
-def aviso(texto: str) -> str:
-    """Faixa de aviso no topo do conteúdo, como nas abas ainda não implementadas."""
-    return f'<div class="aviso">{para_html(texto)}</div>'
 
 
 def cartao(titulo: str, linhas: Iterable[str]) -> str:
@@ -130,12 +126,19 @@ def ponte(rotulo: str, texto: str) -> str:
     )
 
 
-def rodape_pisos() -> str:
-    """Faixa de pisos, dentro do painel e sempre à vista."""
+def rodape_pisos(janela_inicio: int, janela_fim: int) -> str:
+    """Faixa de pisos, dentro do painel e sempre à vista.
+
+    Os valores vêm das constantes e a janela vem da execução, nunca de literais: este
+    rodapé é a versão curta da tabela de pisos da aba Método, e as duas precisam contar a
+    mesma história na mesma execução.
+    """
     return (
-        '<div class="pisos"><b>Pisos fixos (não filtros):</b> R ≥ 500 para HHI (Q2) e '
-        "persistência (Q5); V_total ≥ 100 na janela 2023–2025 para os perfis (Q6–Q7) e "
-        "para a leitura da Q4; a árvore exige R_total ≥ 500 e V_total ≥ 100.</div>"
+        '<div class="pisos"><b>Pisos fixos (não filtros):</b> '
+        f"R ≥ {PISO_REGISTROS} para HHI (Q2) e persistência (Q5); "
+        f"V_total ≥ {PISO_VINCULOS} na janela {janela_inicio}–{janela_fim} para os perfis "
+        f"(Q6–Q7) e para a leitura da Q4; a árvore exige R_total ≥ {PISO_REGISTROS} e "
+        f"V_total ≥ {PISO_VINCULOS}.</div>"
     )
 
 

@@ -123,6 +123,10 @@ body {{
   margin-top: 20px;
   align-items: stretch;
 }}
+/* Aba sem figura: não há evidência a alternar, e a resposta ocupa a linha toda. */
+.linha-unica {{ grid-template-columns: 1fr; }}
+/* Bloco de largura total abaixo da linha principal, na mesma malha de cartões. */
+.bloco-extra {{ margin-top: 20px; }}
 
 .cartao {{
   background: #FFFFFF;

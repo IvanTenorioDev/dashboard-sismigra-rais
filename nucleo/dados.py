@@ -15,10 +15,12 @@ import numpy as np
 import pandas as pd
 
 from nucleo.config import (
+    ABAS,
     ARQUIVOS,
     COLUNAS_ATRIBUTOS,
     NACIONALIDADES_NA_TABELA,
     PISO_REGISTROS,
+    PISO_VINCULOS,
     ROTULOS_ATRIBUTOS,
     pasta_dados,
 )
@@ -169,6 +171,12 @@ class Artefatos:
     @property
     def n_universo(self) -> int:
         return int(self.configuracao["universo_com_Q_comparavel"])
+
+    @property
+    def janela_dos_perfis(self) -> tuple[int, int]:
+        """Janela fixa dos perfis, como intervalo fechado de anos."""
+        anos = self._lista_de_anos("janela")
+        return min(anos), max(anos)
 
     def regiao_do_k(self) -> pd.Series:
         """Linha do diagnóstico correspondente ao k escolhido."""
@@ -611,6 +619,66 @@ class Artefatos:
             "pct_com_lacuna": formatar_percentual(len(com_lacuna) / len(persistencia)),
             "primeiro_ano": int(persistencia["primeiro_ano_vinculos"].min()),
             "ultimo_ano": int(persistencia["ultimo_ano_vinculos"].max()),
+        }
+
+    def _lista_de_anos(self, chave: str) -> list[int]:
+        """Lista de anos declarada no config, com erro explícito quando malformada."""
+        valor = self.configuracao.get(chave)
+        if not isinstance(valor, list):
+            raise ValueError(
+                f"configuracao['{chave}'] deveria ser uma lista de anos; recebido {valor!r}. "
+                f"Rode a FASE 9 de novo."
+            )
+        return [int(ano) for ano in valor]
+
+    def valores_metodo_para_texto(self) -> dict[str, object]:
+        """Números da aba Método: as coberturas e o funil, em valores desta execução.
+
+        A aba não depende de nenhum artefato novo — só do config e das duas séries que já
+        sustentam a Q1 e a Q3. Ela existe para que as decisões fiquem num lugar só, com os
+        números ao lado, em vez de espalhadas pelos limites de cada pergunta.
+        """
+        vinculos = self.resumo_anual.dropna(subset=["vinculos_formais"])
+        fluxo = self.fluxo.dropna(subset=["registros_no_ano"])
+        inicio_estoque, fim_estoque = self._cobertura_do_estoque()
+        janela = self._lista_de_anos("janela")
+        amparo = sorted(self._lista_de_anos("anos_com_tipologia_de_amparo"))
+        anos_do_fluxo = {int(ano) for ano in fluxo["ano"]}
+        lacunas = sorted(
+            set(range(min(anos_do_fluxo), max(anos_do_fluxo) + 1)) - anos_do_fluxo
+        )
+        return {
+            "n_na_janela": formatar_inteiro(self.configuracao["n_nacionalidades_na_janela"]),
+            "n_com_q": formatar_inteiro(self.configuracao["universo_com_Q_comparavel"]),
+            "n_com_atributos": formatar_inteiro(self.configuracao["com_os_6_atributos"]),
+            "n_elegiveis": formatar_inteiro(self.n_elegiveis),
+            "n_categorias_excluidas": formatar_inteiro(
+                self.configuracao["categorias_nao_nacionais_excluidas"]
+            ),
+            "piso_vinculos": formatar_inteiro(PISO_VINCULOS),
+            "piso_registros": formatar_inteiro(PISO_REGISTROS),
+            "primeiro_ano_vinculos": int(vinculos["ano"].min()),
+            "ultimo_ano_vinculos": int(vinculos["ano"].max()),
+            "inicio_estoque": inicio_estoque,
+            "fim_estoque": fim_estoque,
+            "primeiro_ano_fluxo": int(fluxo["ano"].min()),
+            "ultimo_ano_fluxo": int(fluxo["ano"].max()),
+            "primeiro_ano_amparo": amparo[0],
+            "ultimo_ano_amparo": amparo[-1],
+            "lacunas_do_fluxo": " e ".join(str(ano) for ano in lacunas),
+            "ano_em_curso": ", ".join(str(ano) for ano in sorted(self.anos_incompletos())),
+            "janela_inicio": min(janela),
+            "janela_fim": max(janela),
+            "n_atributos": len(COLUNAS_ATRIBUTOS),
+            "k_escolhido": self.k_escolhido,
+            "acordo_minimo": formatar_decimal(
+                self.configuracao["acordo_minimo_kmeans_ward"], 1
+            ),
+            "minimo_por_grupo": int(self.configuracao["minimo_nacionalidades_por_grupo"]),
+            "semente": int(self.configuracao["semente"]),
+            "repeticoes": int(self.configuracao["repeticoes_reamostragem"]),
+            "n_artefatos": len(ARQUIVOS),
+            "n_abas_de_resultado": len(ABAS) - 1,
         }
 
 

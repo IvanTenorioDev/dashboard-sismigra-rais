@@ -40,6 +40,7 @@ from nucleo import (  # noqa: E402
     graficos_q5,
     graficos_q6,
     textos,
+    textos_metodo,
     textos_q1,
     textos_q2,
     textos_q3,
@@ -48,6 +49,7 @@ from nucleo import (  # noqa: E402
     textos_q6,
 )
 from nucleo.config import (  # noqa: E402
+    ABA_METODO,
     ABA_Q1,
     ABA_Q2,
     ABA_Q3,
@@ -75,21 +77,22 @@ TITULO = "Dashboard analítico • SISMIGRA × RAIS-CTPS"
 # publicar o painel é só apontar o Pages para cá.
 SAIDA = RAIZ / "docs"
 
-PENDENTE = (
-    "Esta aba ainda não foi implementada. O desenho abaixo é o contrato que ela deve "
-    "seguir — o mesmo da Q7, que já está pronta e serve de referência."
-)
-
-LIMITES_PENDENTES = (
-    "resultado sintético",
-    "denominador explícito",
-    "critério de elegibilidade",
-    "cobertura observada",
-    "interpretação permitida",
-)
-
 ConstrutorDeFigura = Callable[[Artefatos], go.Figure]
 ValoresDaNarrativa = Callable[[Artefatos], dict[str, object]]
+
+
+@dataclass(frozen=True)
+class Bloco:
+    """Seção de largura total abaixo da linha principal, com o corpo vindo de uma tabela.
+
+    Existe para a aba de referência, que enumera decisões em vez de mostrar uma
+    distribuição. O corpo é uma tabela e não uma figura porque uma enumeração de decisões
+    não tem eixo — o que ela tem é linhas e colunas.
+    """
+
+    titulo: str
+    tabela: Callable[[Artefatos], str]
+    nota: str = ""
 
 
 @dataclass(frozen=True)
@@ -107,6 +110,7 @@ class Conteudo:
     ponte: str
     tabela: Callable[[Artefatos], str] | None = None
     chave_tabela: str = ""
+    blocos: tuple[Bloco, ...] = ()
 
 
 # ---------------------------------------------------------------------------
@@ -171,19 +175,33 @@ def _cartao_de_resposta(
     )
 
 
+def _bloco(bloco: Bloco, artefatos: Artefatos) -> str:
+    nota = (
+        f'<div class="linha">{componentes.para_html(bloco.nota)}</div>' if bloco.nota else ""
+    )
+    return (
+        '<div class="cartao cartao-alto bloco-extra">'
+        f'<div class="titulo-bloco">{bloco.titulo}</div>'
+        f"{nota}{bloco.tabela(artefatos)}</div>"
+    )
+
+
 def _secao(conteudo: Conteudo, artefatos: Artefatos, prefixo: str) -> str:
     valores = conteudo.valores(artefatos)
-    evidencias = _cartao_de_evidencia(conteudo, artefatos, valores, prefixo)
     resposta = _cartao_de_resposta(conteudo, artefatos, valores)
+    if conteudo.evidencias:
+        evidencias = _cartao_de_evidencia(conteudo, artefatos, valores, prefixo)
+        principal = f'<div class="linha-principal">{evidencias}{resposta}</div>'
+    else:
+        # Aba sem figura: não há evidência a alternar, e a resposta ocupa a linha toda. O
+        # seletor existe para trocar de evidência, não para preencher o cartão.
+        principal = f'<div class="linha-principal linha-unica">{resposta}</div>'
+    blocos = "".join(_bloco(bloco, artefatos) for bloco in conteudo.blocos)
     ponte = componentes.ponte(
         "Onde isto toca o problema do projeto",
         textos.preencher(conteudo.ponte, valores),
     )
-    return (
-        f"{_cartoes(conteudo)}"
-        f'<div class="linha-principal">{evidencias}{resposta}</div>'
-        f"{ponte}"
-    )
+    return f"{_cartoes(conteudo)}{principal}{blocos}{ponte}"
 
 
 # ---------------------------------------------------------------------------
@@ -852,8 +870,237 @@ def _conteudo_q5(artefatos: Artefatos) -> Conteudo:
     )
 
 
-# As abas que já declaram conteúdo. A validação deriva daqui o que esperar do HTML, em
-# vez de manter uma contagem paralela que envelhece em silêncio.
+# ---------------------------------------------------------------------------
+# Método & limites — a decisão declarada
+# ---------------------------------------------------------------------------
+
+
+def _tabela_funil(artefatos: Artefatos) -> str:
+    valores = artefatos.valores_metodo_para_texto()
+    cabecalhos = ("Etapa", "Critério", "Nacionalidades")
+    linhas = [
+        (
+            "1",
+            "Nacionalidades na janela, após exclusão de categorias administrativas",
+            str(valores["n_na_janela"]),
+        ),
+        (
+            "2",
+            "Com índice Q definido — presença simultânea nas duas fontes",
+            str(valores["n_com_q"]),
+        ),
+        (
+            "3",
+            f"Com os {valores['n_atributos']} atributos de perfil observados",
+            str(valores["n_com_atributos"]),
+        ),
+        (
+            "4",
+            f"Com V_total ≥ {valores['piso_vinculos']} — soma dos vínculos na janela",
+            str(valores["n_elegiveis"]),
+        ),
+    ]
+    return componentes.tabela(cabecalhos, linhas)
+
+
+def _tabela_cobertura(artefatos: Artefatos) -> str:
+    valores = artefatos.valores_metodo_para_texto()
+    cabecalhos = ("Fonte", "O que conta", "Anos cobertos", "Observação")
+    linhas = [
+        (
+            "RAIS-CTPS",
+            "Vínculo formal — estoque em 31/12",
+            f"{valores['primeiro_ano_vinculos']}–{valores['ultimo_ano_vinculos']}",
+            "Um vínculo é um posto de trabalho, não uma pessoa",
+        ),
+        (
+            "SISMIGRA-ATIVOS",
+            "Registro ativo — estoque de dezembro",
+            f"{valores['inicio_estoque']}–{valores['fim_estoque']}",
+            "É o único lado comparável com a RAIS, e o mais curto",
+        ),
+        (
+            "SISMIGRA (microdados)",
+            "Registro com data de registro no ano — fluxo",
+            f"{valores['primeiro_ano_fluxo']}–{valores['ultimo_ano_fluxo']}, "
+            f"sem {valores['lacunas_do_fluxo']}",
+            f"{valores['ano_em_curso']} está em curso na data da extração",
+        ),
+        (
+            "Tipologia de amparos",
+            "Classificação do amparo legal do registro",
+            f"{valores['primeiro_ano_amparo']}–{valores['ultimo_ano_amparo']}",
+            "Antes disso o campo não existe — e ausência não é zero",
+        ),
+    ]
+    return componentes.tabela(cabecalhos, linhas)
+
+
+def _tabela_pisos(artefatos: Artefatos) -> str:
+    valores = artefatos.valores_metodo_para_texto()
+    cabecalhos = ("Piso", "Valor", "Onde se aplica", "Por quê")
+    linhas = [
+        (
+            "Vínculos na janela",
+            f"≥ {valores['piso_vinculos']}",
+            "Elegibilidade das abas Q6 e Q7",
+            "Assegura massa às medianas de perfil; não valida a estrutura encontrada",
+        ),
+        (
+            "Registros ativos",
+            f"≥ {valores['piso_registros']}",
+            "Concentração territorial (Q2) e persistência (Q5)",
+            "HHI de um único registro é 1 por construção — a estatística falaria da amostra, "
+            "não do território",
+        ),
+    ]
+    return componentes.tabela(cabecalhos, linhas)
+
+
+def _tabela_decisoes(artefatos: Artefatos) -> str:
+    valores = artefatos.valores_metodo_para_texto()
+    cabecalhos = ("Decisão", "Escolha feita", "Alternativa descartada")
+    linhas = [
+        (
+            "Agregação do índice Q",
+            "Média das razões anuais",
+            "Razão das somas — mistura anos de volumes diferentes e deixa o maior dominar",
+        ),
+        (
+            "Medida de associação",
+            "Correlação de postos (Spearman)",
+            "Pearson — a cauda pesada de Q faz uma única observação dominar o coeficiente",
+        ),
+        (
+            "Cortes das faixas de Q",
+            "Valores redondos: 0,5 · 1 · 1,5",
+            "Quantis — fronteiras arbitrárias que apagariam o ponto de paridade em 1",
+        ),
+        (
+            "Partição das nacionalidades",
+            f"{valores['k_escolhido']} regiões",
+            "k por critério isolado — exigiu acordo KMeans × Ward de "
+            f"{valores['acordo_minimo']} e grupo mínimo de {valores['minimo_por_grupo']}",
+        ),
+        (
+            "Janela dos perfis",
+            f"{valores['janela_inicio']}–{valores['janela_fim']}",
+            f"Janela mais longa — perde o lado do estoque, que só começa em "
+            f"{valores['inicio_estoque']}",
+        ),
+        (
+            "Ordem dos filtros de elegibilidade",
+            "Q definido antes dos atributos",
+            "Atributos primeiro — descartaria nacionalidades com vínculo e sem registro",
+        ),
+    ]
+    return componentes.tabela(cabecalhos, linhas)
+
+
+def _tabela_nao_faz(artefatos: Artefatos) -> str:
+    cabecalhos = ("O painel não", "Por quê")
+    linhas = [
+        (
+            "Recalcula o índice nem os atributos",
+            "O notebook congela e a tela apresenta. Recalcular criaria duas versões do mesmo "
+            "número",
+        ),
+        (
+            "Imputa dado ausente",
+            "Preencher com zero afirmaria que não houve registro — o que é falso",
+        ),
+        (
+            "Soma conceitos de UF diferentes",
+            "Residência (SISMIGRA) e estabelecimento (RAIS) são recortes distintos; a Q2 os "
+            "apresenta lado a lado",
+        ),
+        (
+            "Extrapola para indivíduos",
+            "A unidade é a nacionalidade, e nenhuma das fontes identifica pessoas",
+        ),
+        (
+            "Atribui causa",
+            "Todas as associações são descritivas e nenhuma distingue seleção de retorno",
+        ),
+        (
+            "Lê o topo do ranking de Q como posição",
+            "O índice não tem limite superior, e os maiores valores repousam sobre "
+            "denominadores pequenos — quantificado na Seção 6.2 do relatório da Q4",
+        ),
+    ]
+    return componentes.tabela(cabecalhos, linhas)
+
+
+def _indicadores_metodo(artefatos: Artefatos) -> list[tuple[str, str]]:
+    valores = artefatos.valores_metodo_para_texto()
+    return [
+        ("Fontes combinadas", "RAIS-CTPS + SISMIGRA"),
+        (
+            "Elegíveis",
+            f"{valores['n_elegiveis']} de {valores['n_com_q']} comparáveis",
+        ),
+        ("Atributos de perfil", str(valores["n_atributos"])),
+        (
+            "Pisos de massa",
+            f"{valores['piso_vinculos']} vínculos · {valores['piso_registros']} registros",
+        ),
+        ("Artefatos apresentados", str(valores["n_artefatos"])),
+    ]
+
+
+def _conteudo_metodo(artefatos: Artefatos) -> Conteudo:
+    valores = artefatos.valores_metodo_para_texto()
+    return Conteudo(
+        cartoes=(
+            (
+                "Cobertura",
+                (
+                    "RAIS-CTPS · SISMIGRA-ATIVOS · SISMIGRA (microdados)",
+                    f"Vínculos: {valores['primeiro_ano_vinculos']}–"
+                    f"{valores['ultimo_ano_vinculos']} · Registros: "
+                    f"{valores['inicio_estoque']}–{valores['fim_estoque']}",
+                    f"Fluxo: {valores['primeiro_ano_fluxo']}–{valores['ultimo_ano_fluxo']}, "
+                    f"sem {valores['lacunas_do_fluxo']}",
+                ),
+            ),
+            (
+                "Filtros",
+                (
+                    f"Janela dos perfis: {valores['janela_inicio']}–{valores['janela_fim']}",
+                    f"Elegibilidade: Q definido, {valores['n_atributos']} atributos e "
+                    f"V_total ≥ {valores['piso_vinculos']}",
+                    f"Piso de {valores['piso_registros']} registros na Q2 e na Q5",
+                ),
+            ),
+            (
+                "Nota metodológica",
+                (
+                    "Unidade: nacionalidade — nunca indivíduo",
+                    f"Cobertura: {valores['n_elegiveis']} de {valores['n_com_q']} comparáveis",
+                    "Interpretação: associação descritiva, nunca causa",
+                ),
+            ),
+        ),
+        evidencias=textos_metodo.EVIDENCIAS,
+        figuras={},
+        valores=lambda dados: dados.valores_metodo_para_texto(),
+        rotulo_curto=textos_metodo.rotulo_curto,
+        resposta=textos_metodo.RESPOSTA_SINTETICA,
+        indicadores=_indicadores_metodo,
+        limites=textos_metodo.LIMITES,
+        ponte=textos_metodo.PONTE,
+        blocos=(
+            Bloco("Funil de elegibilidade", _tabela_funil, textos_metodo.NOTA_FUNIL),
+            Bloco("Cobertura das fontes", _tabela_cobertura, textos_metodo.NOTA_COBERTURA),
+            Bloco("Pisos declarados", _tabela_pisos, textos_metodo.NOTA_PISOS),
+            Bloco("Decisões de desenho", _tabela_decisoes, textos_metodo.NOTA_DECISOES),
+            Bloco("O que o painel recusa fazer", _tabela_nao_faz, textos_metodo.NOTA_NAO_FAZ),
+        ),
+    )
+
+
+# As abas que declaram conteúdo. A validação deriva daqui o que esperar do HTML, em vez de
+# manter uma contagem paralela que envelhece em silêncio.
 CONTEUDO_POR_ABA: dict[str, Callable[[Artefatos], Conteudo]] = {
     ABA_Q1: _conteudo_q1,
     ABA_Q2: _conteudo_q2,
@@ -862,33 +1109,8 @@ CONTEUDO_POR_ABA: dict[str, Callable[[Artefatos], Conteudo]] = {
     ABA_Q5: _conteudo_q5,
     ABA_Q6: _conteudo_q6,
     ABA_Q7: _conteudo_q7,
+    ABA_METODO: _conteudo_metodo,
 }
-
-
-def _secao_pendente(aba: str) -> str:
-    cartoes = componentes.linha_de_cartoes(
-        tuple(
-            componentes.cartao(titulo, (texto,))
-            for titulo, texto in (
-                ("Cobertura", "fontes · anos · variáveis"),
-                ("Filtros", "ano · nacionalidade · Top N"),
-                ("Nota metodológica", "unidade · cobertura · interpretação"),
-            )
-        )
-    )
-    evidencia = (
-        '<div class="cartao cartao-alto"><div class="titulo-bloco">Evidência principal</div>'
-        '<div class="linha">A figura da resposta vai aqui — uma por aba.</div></div>'
-    )
-    resposta = (
-        '<div class="cartao cartao-alto"><div class="titulo-bloco">Resposta + limites</div>'
-        f"{componentes.lista_de_limites(LIMITES_PENDENTES)}</div>"
-    )
-    return (
-        f"{componentes.aviso(f'**{aba}** — {PENDENTE}')}"
-        f"{cartoes}"
-        f'<div class="linha-principal">{evidencia}{resposta}</div>'
-    )
 
 
 def _slug(nome: str) -> str:
@@ -906,11 +1128,11 @@ def construir(destino: Path = SAIDA / "index.html") -> Path:
     """Gera o dashboard completo em um único arquivo."""
     artefatos = carregar()
     identificadas = [(_slug(aba), aba) for aba in ABAS]
+    # Sem aba pendente: uma pergunta nova sem declaração falha alto aqui, em vez de ir ao ar
+    # com texto de espera.
     secoes = [
         _marcador(
-            _secao(CONTEUDO_POR_ABA[nome](artefatos), artefatos, f"{slug}-")
-            if nome in CONTEUDO_POR_ABA
-            else _secao_pendente(nome),
+            _secao(CONTEUDO_POR_ABA[nome](artefatos), artefatos, f"{slug}-"),
             slug,
             indice == 0,
         )
@@ -920,7 +1142,7 @@ def construir(destino: Path = SAIDA / "index.html") -> Path:
         TITULO,
         componentes.navegacao(identificadas, identificadas[0][0]),
         secoes,
-        componentes.rodape_pisos(),
+        componentes.rodape_pisos(*artefatos.janela_dos_perfis),
     )
     destino.parent.mkdir(parents=True, exist_ok=True)
     destino.write_text(html, encoding="utf-8")
