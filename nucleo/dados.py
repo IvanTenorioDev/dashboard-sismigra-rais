@@ -186,7 +186,7 @@ class Artefatos:
         """Indica se um campo opcional está presente nos artefatos carregados."""
         return coluna in getattr(self, chave).columns
 
-    def _cobertura_do_estoque(self) -> tuple[int, int]:
+    def cobertura_do_estoque(self) -> tuple[int, int]:
         """Primeiro e último ano civil com instantâneo de dezembro do SISMIGRA."""
         cobertura = self.configuracao.get("cobertura_estoque_sismigra")
         if not isinstance(cobertura, list) or len(cobertura) != 2:
@@ -208,7 +208,7 @@ class Artefatos:
         declarado = self.configuracao.get("anos_incompletos")
         if isinstance(declarado, list):
             return frozenset(int(ano) for ano in declarado)
-        _, ultimo_fechado = self._cobertura_do_estoque()
+        _, ultimo_fechado = self.cobertura_do_estoque()
         ultimo_presente = max(int(self.fluxo["ano"].max()), ultimo_fechado)
         return frozenset(range(ultimo_fechado + 1, ultimo_presente + 1))
 
@@ -640,7 +640,7 @@ class Artefatos:
         """
         vinculos = self.resumo_anual.dropna(subset=["vinculos_formais"])
         fluxo = self.fluxo.dropna(subset=["registros_no_ano"])
-        inicio_estoque, fim_estoque = self._cobertura_do_estoque()
+        inicio_estoque, fim_estoque = self.cobertura_do_estoque()
         janela = self._lista_de_anos("janela")
         amparo = sorted(self._lista_de_anos("anos_com_tipologia_de_amparo"))
         anos_do_fluxo = {int(ano) for ano in fluxo["ano"]}

@@ -152,7 +152,9 @@ def navegacao(abas: Sequence[tuple[str, str]], ativa: str) -> str:
     return f'<nav class="navegacao">{botoes}</nav>'
 
 
-def pagina(titulo: str, navegacao_html: str, secoes: Sequence[str], rodape: str) -> str:
+def pagina(
+    titulo: str, subtitulo: str, navegacao_html: str, secoes: Sequence[str], rodape: str
+) -> str:
     """Documento completo: painel branco, cabeçalho azul, sidebar, conteúdo e rodapé."""
     corpo = "".join(secoes)
     return (
@@ -164,7 +166,8 @@ def pagina(titulo: str, navegacao_html: str, secoes: Sequence[str], rodape: str)
         f"<style>{tema.CSS}</style>\n"
         "</head>\n<body>\n"
         '<div class="painel">\n'
-        f'<header class="cabecalho">{titulo}</header>\n'
+        f'<header class="cabecalho">{titulo}'
+        f'<div class="subtitulo-cabecalho">{subtitulo}</div></header>\n'
         '<div class="corpo">\n'
         f"{navegacao_html}\n"
         '<div class="coluna">\n'

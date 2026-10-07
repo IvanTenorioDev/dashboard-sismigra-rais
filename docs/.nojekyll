@@ -1,0 +1,6 @@
+A existência deste arquivo desliga o processamento Jekyll no GitHub Pages.
+
+Sem ele, o Pages interpreta `{{ ... }}` e `{% ... %}` como Liquid. O painel é um
+HTML autossuficiente com os gráficos embutidos em JSON, e qualquer chave dupla
+nesses dados seria substituída por vazio em silêncio — o Pages publicaria um
+arquivo diferente do que foi validado.

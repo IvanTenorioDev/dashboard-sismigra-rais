@@ -63,6 +63,12 @@ body {{
   letter-spacing: 0.01em;
   padding: 16px 26px;
 }}
+.subtitulo-cabecalho {{
+  color: #C6D2E0;
+  font-size: 13px;
+  font-weight: 400;
+  margin-top: 4px;
+}}
 
 /* O painel ocupa a janela e é o CONTEÚDO que rola. Assim a faixa de pisos fica
    sempre à vista, na base do painel — como no desenho aprovado. */

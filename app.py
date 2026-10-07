@@ -20,7 +20,6 @@ from nucleo.dados import (
 from paginas import aba_generica, q7_multivariado
 
 TITULO = "Dashboard analítico • SISMIGRA × RAIS-CTPS"
-SUBTITULO = "Projeto Integrador I · imigração registrada e vínculos formais · 2022–2025"
 
 
 def _aba_pedida() -> str:
@@ -68,7 +67,9 @@ def main() -> None:
     )
     estilo.aplicar()
     aba = _navegacao()
-    layout.cabecalho(TITULO, textos.PERGUNTAS.get(aba, SUBTITULO))
+    # A segunda linha do cabeçalho é a pergunta da aba — a faixa de cobertura de cada uma
+    # está no primeiro cartão dela, derivada dos artefatos.
+    layout.cabecalho(TITULO, textos.PERGUNTAS.get(aba, ""))
 
     try:
         artefatos = carregar()

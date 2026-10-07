@@ -83,30 +83,26 @@ Sem os dados reais, o app abre numa tela explicando o que falta. Como todo módu
 processo** — `ferramentas/reiniciar_e_capturar.sh` faz isso e ainda tira a captura de
 tela de uma aba.
 
-## 3.1 Testar
-
-```bash
-.venv/bin/python testes/validar.py              # figuras + abas + evidências (fixture)
-.venv/bin/python testes/validar.py --conferir   # artefatos reais x números congelados na v5
-.venv/bin/python testes/validar.py --app        # abas do app com os artefatos reais
-.venv/bin/python testes/validar.py --html       # regenera e confere o HTML estático
-```
-
 ## 4. Testar
 
 ```bash
-.venv/bin/python testes/validar.py              # leitura, 7 figuras, 8 abas, 8 evidências
+.venv/bin/python testes/validar.py              # fixture sintética: estrutura das 8 abas
 .venv/bin/python testes/validar.py --conferir   # artefatos reais x números congelados na v5
+.venv/bin/python testes/validar.py --app        # as 8 abas no app, exigindo conteúdo
+.venv/bin/python testes/validar.py --html       # regenera e confere o HTML estático
 ```
 
-O validador sobe o app em memória, percorre todas as abas e todas as evidências da Q7 e
-falha se qualquer uma levantar exceção. Foi ele que pegou a colisão de colunas `V_total`
-entre `q7_pca.csv` e `q7_perfis.csv`.
+O modo `--app` sobe a aplicação em memória, percorre as oito abas e todas as evidências da
+Q7, e exige **gráfico ou tabela** em cada aba — uma aba que renderizasse vazio não passa. O
+modo `--conferir` compara os números com os congelados na v5 e falha se algum item bloqueante
+divergir; foi ele que pegou a colisão de colunas `V_total` entre `q7_pca.csv` e
+`q7_perfis.csv`.
 
 ## 5. Publicar
 
+O repositório local já existe e o histórico está íntegro. Falta apontar o remoto:
+
 ```bash
-git init && git add . && git commit -m "dashboard Q7"
 git remote add origin <url-do-repositorio>
 git push -u origin main
 ```
@@ -114,6 +110,11 @@ git push -u origin main
 **GitHub Pages** (gerador estático) — no repositório: *Settings* → *Pages* →
 *Source: Deploy from a branch* → branch `main`, pasta **`/docs`**. O painel fica em
 `https://<usuario>.github.io/<repositorio>/`.
+
+A pasta `docs/` traz um `.nojekyll`, e ele é necessário: sem esse arquivo o Pages processa o
+HTML com Jekyll e interpretaria `{{ ... }}` como Liquid. O painel embute os dados dos
+gráficos em JSON, então uma chave dupla nos dados seria substituída por vazio em silêncio —
+o Pages publicaria um arquivo diferente do que foi validado.
 
 Vantagens em relação ao Streamlit Cloud: não precisa de servidor Python, **não hiberna**,
 carrega instantaneamente e não tem limite de recursos. O `index.html` gerado é
@@ -127,22 +128,36 @@ Em qualquer das duas rotas os arquivos de `dados/q7/` **precisam estar no commit
 ## 6. Estrutura
 
 ```
-app.py                      navegação e tratamento de ausência de dados
-nucleo/
-  config.py                 pisos, rótulos, cores, lista de abas, caminho dos dados
-  dados.py                  leitura e validação do esquema dos artefatos
-  graficos.py               as 7 figuras — nenhuma página monta gráfico sozinha
-  textos.py                 a narrativa: pergunta, resposta, limites, leitura de cada evidência
-  layout.py                 os três cartões, o painel de resposta, o rodapé de pisos
+app.py                      aplicação Streamlit: navegação e tratamento de ausência de dados
+
+gerador/                    o painel estático — o artefato publicado
+  construir.py              as oito abas declaradas, e o renderizador do HTML
+  componentes.py            as peças de HTML
+  tema.py                   a folha de estilo do painel
+
+nucleo/                     a camada analítica, compartilhada pelas duas telas
+  config.py                 pisos, rótulos, cores, abas, cobertura dos dados, estilo da tabela
+  dados.py                  leitura, validação do esquema e valores derivados
+  graficos_base.py          o que é comum às figuras: paleta, eixos, margens, marcações
+  graficos*.py              as figuras, por pergunta
+  textos*.py                a narrativa, por pergunta
+  layout.py                 as peças de tela da aplicação Streamlit
+  estilo.py                 a folha de estilo da aplicação
   formatos.py               formatação numérica em padrão brasileiro
+
 paginas/
-  q7_multivariado.py        a aba Q7
-  em_construcao.py          esqueleto do contrato para as demais abas
+  aba_generica.py           monta qualquer aba a partir da declaração dela
+  q7_multivariado.py        a Q7, que tem recursos próprios (Top N e regras em expansores)
+
 dados/q7/                   artefatos congelados (versionados)
-testes/validar.py           validação em dois modos
+docs/                       o painel publicado: index.html e .nojekyll
+testes/validar.py           validação em quatro modos
 ```
 
-## 7. Decisões de desenho da aba Q7
+Uma aba nova se acrescenta declarando o conteúdo dela em `gerador/construir.py`: as duas
+telas leem a mesma declaração, e nenhuma das duas precisa de página nova.
+
+## 7. Decisões de desenho das abas
 
 ### 7.1 Convenções visuais (slide 11)
 

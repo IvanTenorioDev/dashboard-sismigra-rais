@@ -72,6 +72,23 @@ from nucleo.formatos import (  # noqa: E402
 
 TITULO = "Dashboard analítico • SISMIGRA × RAIS-CTPS"
 
+
+def _subtitulo(artefatos: Artefatos) -> str:
+    """Faixa de cobertura do cabeçalho, derivada dos artefatos.
+
+    Não é uma faixa só. As fontes cobrem períodos diferentes — os vínculos formais desde
+    2010, o estoque de registros ativos desde 2022 — e resumir as duas num intervalo
+    único afirmaria que o lado mais curto existe nos anos em que não existe. Cada aba
+    declara a própria cobertura; aqui ficam as duas que o projeto compara.
+    """
+    vinculos = artefatos.resumo_anual.dropna(subset=["vinculos_formais"])
+    inicio_estoque, fim_estoque = artefatos.cobertura_do_estoque()
+    return (
+        "Projeto Integrador I · imigração registrada e vínculos formais · "
+        f"vínculos {int(vinculos['ano'].min())}–{int(vinculos['ano'].max())} · "
+        f"registros ativos {inicio_estoque}–{fim_estoque}"
+    )
+
 # `docs/` de propósito: é a pasta que o GitHub Pages sabe publicar (a outra opção é a
 # raiz). O HTML sai autossuficiente, com os dados e os gráficos embutidos, então
 # publicar o painel é só apontar o Pages para cá.
@@ -1140,6 +1157,7 @@ def construir(destino: Path = SAIDA / "index.html") -> Path:
     ]
     html = componentes.pagina(
         TITULO,
+        _subtitulo(artefatos),
         componentes.navegacao(identificadas, identificadas[0][0]),
         secoes,
         componentes.rodape_pisos(*artefatos.janela_dos_perfis),
